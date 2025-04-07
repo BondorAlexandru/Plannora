@@ -472,7 +472,7 @@ export default function Create() {
         <div>
           {/* Budget Summary - Make it sticky */}
           {event.budget > 0 && (
-            <div className="sticky top-4 z-10 mb-8">
+            <div className="sticky top-12 z-20 mb-8">
               <div className="bg-white rounded-xl shadow-fun p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-heading font-bold text-gray-800">Budget Summary</h2>
@@ -560,7 +560,7 @@ export default function Create() {
                 )}
                 
                 {budgetSuggestions.length > 0 && (
-                  <div className="bg-festive-yellow-50 border border-festive-yellow-200 rounded-lg p-4">
+                  <div className="bg-festive-yellow-50 border border-festive-yellow-200 rounded-lg p-4 mb-4">
                     <h3 className="text-lg font-heading font-semibold text-primary-700 mb-2">Budget Suggestions</h3>
                     <ul className="space-y-2">
                       {budgetSuggestions.map((suggestion, index) => (
@@ -581,6 +581,25 @@ export default function Create() {
                     </ul>
                   </div>
                 )}
+                
+                {/* Category quick navigation - Integrated into budget summary */}
+                <div className="mt-4 bg-gray-50 rounded-lg p-3 overflow-x-auto">
+                  <div className="flex space-x-2">
+                    {Object.values(ProviderCategory).map(category => (
+                      <button
+                        key={category}
+                        className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
+                          activeCategory === category 
+                            ? 'bg-primary-500 text-white' 
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        }`}
+                        onClick={() => handleSetActiveCategory(category)}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -645,29 +664,10 @@ export default function Create() {
             </div>
           )}
 
-          {/* Category quick navigation */}
-          <div className="bg-white rounded-xl shadow-fun p-4 mb-8 overflow-x-auto">
-            <div className="flex space-x-2">
-              {Object.values(ProviderCategory).map(category => (
-                <button
-                  key={category}
-                  className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
-                    activeCategory === category 
-                      ? 'bg-primary-500 text-white' 
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
-                  onClick={() => handleSetActiveCategory(category)}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Provider Selection Section */}
           <div className="bg-white rounded-xl shadow-fun p-6 md:p-8 mb-8">
             <h2 className="text-xl font-heading font-bold mb-6 text-gray-800">Select Services</h2>
-            <div className="space-y-6">
+            <div className="space-y-6 scrollbar-hide">
               {Object.values(ProviderCategory).map(category => {
                 const categoryProviders = providers.filter(p => p.category === category);
                 if (categoryProviders.length === 0) return null;
