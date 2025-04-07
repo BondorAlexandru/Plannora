@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Event, SelectedProvider } from "../types";
 import { providers } from "../data/mockData";
 import html2pdf from "html2pdf.js";
+import { useNavigate } from "react-router-dom";
 
 const Preview = () => {
   const [event, setEvent] = useState<Event | null>(null);
@@ -12,26 +13,35 @@ const Preview = () => {
     alternatives: typeof providers;
     savings: number;
   }[]>([]);
+  const [sampleMode, setSampleMode] = useState(false);
+  const [showTips, setShowTips] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const eventData = localStorage.getItem("event");
-    if (eventData) {
-      const parsedEvent: Event = JSON.parse(eventData);
-      setEvent(parsedEvent);
+    const savedEvent = localStorage.getItem('event');
+    
+    if (savedEvent) {
+      setEvent(JSON.parse(savedEvent));
     } else {
-      // Create default event data for direct visitors
-      const defaultEvent: Event = {
-        name: "Sample Event",
-        date: new Date().toISOString().split("T")[0],
-        location: "Sample Location",
-        budget: 10000,
+      // If no event data, create sample data for demo purposes
+      setSampleMode(true);
+      setEvent({
+        name: 'Sample Event',
+        date: new Date().toISOString().split('T')[0],
+        location: 'Sample Location',
         guestCount: 50,
-        eventType: "Party",
-        selectedProviders: [],
-      };
-      setEvent(defaultEvent);
-      localStorage.setItem("event", JSON.stringify(defaultEvent));
+        budget: 5000,
+        eventType: 'Party',
+        selectedProviders: []
+      });
     }
+    
+    // Show optimization tips after a delay for better UX
+    const timer = setTimeout(() => {
+      setShowTips(true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Generate budget optimization suggestions when event changes or when over budget
@@ -145,11 +155,49 @@ const Preview = () => {
     }, 300);
   };
 
+  // Function to clear all data and return to home
+  const handleClearData = () => {
+    // Clear localStorage
+    localStorage.removeItem('event');
+    localStorage.removeItem('eventStep');
+    localStorage.removeItem('activeCategory');
+    
+    // Show confirmation
+    alert('All data has been cleared. Returning to home page.');
+    
+    // Navigate to home
+    navigate('/');
+  };
+
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6">
-      <h1 className="text-3xl font-display text-primary-600 mb-6 text-center">
-        Event Quote
-      </h1>
+    <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="text-center mb-10">
+        <h1 className="text-3xl md:text-4xl font-display text-primary-600 mb-4">
+          Event Summary & Quote
+        </h1>
+        {sampleMode && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4 mb-6 max-w-lg mx-auto">
+            <p className="text-yellow-700">
+              <span className="font-medium">Sample Mode:</span> You're viewing a demo preview. 
+              <a href="/create" className="ml-2 text-primary-600 hover:text-primary-800 underline">Create your own event</a>
+            </p>
+          </div>
+        )}
+        <div className="w-24 h-0.5 bg-primary-300 mx-auto mb-6"></div>
+        <div className="flex justify-center gap-4">
+          <a href="/create" className="text-primary-600 hover:text-primary-800 font-medium">
+            Edit Event
+          </a>
+          {!sampleMode && (
+            <button
+              onClick={handleClearData}
+              className="text-red-600 hover:text-red-800 font-medium"
+            >
+              Clear & Start Over
+            </button>
+          )}
+        </div>
+      </div>
 
       {event ? (
         <div>

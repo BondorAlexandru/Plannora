@@ -46,8 +46,19 @@ export default function Create() {
   // Load saved event data if it exists
   useEffect(() => {
     const savedEvent = localStorage.getItem('event');
+    const savedStep = localStorage.getItem('eventStep');
+    const savedCategory = localStorage.getItem('activeCategory');
+    
     if (savedEvent) {
       setEvent(JSON.parse(savedEvent));
+    }
+    
+    if (savedStep) {
+      setStep(parseInt(savedStep));
+    }
+    
+    if (savedCategory) {
+      setActiveCategory(savedCategory as ProviderCategory);
     }
   }, []);
   
@@ -55,6 +66,18 @@ export default function Create() {
   useEffect(() => {
     localStorage.setItem('event', JSON.stringify(event));
   }, [event]);
+  
+  // Save step data whenever it changes
+  useEffect(() => {
+    localStorage.setItem('eventStep', step.toString());
+  }, [step]);
+  
+  // Save active category whenever it changes
+  useEffect(() => {
+    if (activeCategory) {
+      localStorage.setItem('activeCategory', activeCategory);
+    }
+  }, [activeCategory]);
 
   // Generate budget suggestions based on event type and guest count
   useEffect(() => {
@@ -440,6 +463,35 @@ export default function Create() {
     }, 100);
   };
   
+  // Clear all saved data and reset to default state
+  const handleClearData = () => {
+    // Clear localStorage
+    localStorage.removeItem('event');
+    localStorage.removeItem('eventStep');
+    localStorage.removeItem('activeCategory');
+    
+    // Reset state
+    setEvent({
+      name: '',
+      date: new Date().toISOString().split('T')[0],
+      location: '',
+      guestCount: 0,
+      budget: 0,
+      eventType: 'Party',
+      selectedProviders: []
+    });
+    setStep(1);
+    setActiveCategory(initialCategory);
+    setBudgetSuggestions([]);
+    setShowBudgetAlert(false);
+    setBudgetImpact(null);
+    setQuickAlternatives(null);
+    setSelectedProvider(null);
+    
+    // Show confirmation
+    alert('All data has been cleared. You can start fresh!');
+  };
+  
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="text-center mb-10">
@@ -448,6 +500,14 @@ export default function Create() {
         </h1>
         <div className="w-24 h-0.5 bg-primary-300 mx-auto mb-6"></div>
         <p className="text-lg font-heading text-gray-700">Let's make your celebration unforgettable!</p>
+        
+        {/* Clear Data Button */}
+        <button
+          onClick={handleClearData}
+          className="mt-4 bg-red-100 hover:bg-red-200 text-red-600 font-medium py-1 px-4 rounded-full text-sm transition-colors"
+        >
+          Clear & Start Over
+        </button>
       </div>
       
       {/* Step Indicator */}
