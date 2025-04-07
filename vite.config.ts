@@ -1,15 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3206,
+    port: 3000,
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
         ws: true,
@@ -36,14 +37,35 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': './src'
+      '@': path.resolve(__dirname, './src')
     }
   },
   build: {
-    // Bypass TypeScript issues for production build
+    outDir: 'dist',
+    sourcemap: false,
     rollupOptions: {
+      external: [],
+      output: {
+        manualChunks: {
+          vendor: [
+            'react', 
+            'react-dom', 
+            'react-router-dom'
+          ],
+          utils: [
+            'date-fns',
+            'axios'
+          ]
+        }
+      },
       onwarn(warning, warn) {
-        if (warning.code === 'TS2307' || warning.code === 'TS7016' || warning.code === 'TS7026' || warning.code === 'TS7031') {
+        if (
+          warning.code === 'MODULE_LEVEL_DIRECTIVE' || 
+          warning.code === 'CIRCULAR_DEPENDENCY'
+        ) {
+          return;
+        }
+        if (warning.code === 'UNRESOLVED_IMPORT' && warning.message?.includes('date-fns')) {
           return;
         }
         warn(warning);
