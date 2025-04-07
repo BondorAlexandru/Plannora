@@ -1,4 +1,4 @@
-import { ProviderCategory, Offer } from './data/mockData';
+import { ProviderCategory } from './data/mockData';
 
 export interface Event {
   id?: string;

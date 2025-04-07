@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Provider, Offer } from '../data/mockData';
-import { SelectedProvider } from '../types';
 
 interface ProviderDetailProps {
   provider: Provider;
