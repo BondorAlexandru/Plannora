@@ -44,7 +44,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-4 md:mb-0">
-              <p className="font-heading">© 2024 Plannora. All rights reserved.</p>
+              <p className="font-heading">© 2025 Plannora. All rights reserved.</p>
               <p className="text-sm mt-1 text-white/80">Your all-in-one event planning solution</p>
             </div>
             <div className="flex space-x-4">
