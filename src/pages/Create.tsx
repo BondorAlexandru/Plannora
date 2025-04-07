@@ -12,6 +12,7 @@ export default function Create() {
   const initialCategory = searchParams.get(
     "category"
   ) as ProviderCategory | null;
+  const eventId = searchParams.get("eventId");
 
   const [event, setEvent] = useState<Event>({
     name: "",
@@ -27,6 +28,8 @@ export default function Create() {
   const [activeCategory, setActiveCategory] = useState<ProviderCategory | null>(
     initialCategory
   );
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(!!eventId);
   const [budgetSuggestions, setBudgetSuggestions] = useState<
     {
       category: ProviderCategory;
@@ -55,61 +58,144 @@ export default function Create() {
 
   const { isAuthenticated, guestMode } = useAuth();
 
-  // Load saved event data if it exists
+  // Load event by ID if provided
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Get event data from server or localStorage based on authentication
-        const savedEvent = await eventService.getEvent(
-          isAuthenticated,
-          guestMode
-        );
-
-        if (savedEvent) {
-          setEvent(savedEvent);
+    const loadEventById = async () => {
+      if (eventId && isAuthenticated) {
+        setIsLoadingEvent(true);
+        setIsEditMode(true);
+        try {
+          const fetchedEvent = await eventService.getEventById(eventId, isAuthenticated);
+          if (fetchedEvent) {
+            // Ensure the ID is properly set in the event object and selectedProviders exists
+            setEvent({
+              ...fetchedEvent,
+              // Ensure we have both id and _id for consistency
+              id: eventId,
+              _id: fetchedEvent._id || eventId,
+              selectedProviders: fetchedEvent.selectedProviders || [] // Ensure selectedProviders is an array
+            });
+            
+            // Also set the step if available
+            if (fetchedEvent.step) {
+              setStep(fetchedEvent.step);
+            }
+            
+            // Set active category if available
+            if (fetchedEvent.activeCategory) {
+              setActiveCategory(fetchedEvent.activeCategory as ProviderCategory);
+            }
+          }
+        } catch (error) {
+          console.error("Error loading event by ID:", error);
+        } finally {
+          setIsLoadingEvent(false);
         }
-
-        // Get step data
-        const savedStep = localStorage.getItem("eventStep");
-        if (savedStep) {
-          setStep(parseInt(savedStep));
-        }
-
-        // Get active category data
-        const savedCategory = localStorage.getItem("activeCategory");
-        if (savedCategory) {
-          setActiveCategory(savedCategory as ProviderCategory);
-        }
-      } catch (error) {
-        console.error("Error loading event data:", error);
       }
     };
+    
+    loadEventById();
+  }, [eventId, isAuthenticated]);
 
-    loadData();
-  }, [isAuthenticated, guestMode]);
+  // Load saved event data if not in edit mode and no eventId
+  useEffect(() => {
+    if (!eventId) {
+      const loadData = async () => {
+        try {
+          // Get event data from server or localStorage based on authentication
+          const savedEvent = await eventService.getEvent(
+            isAuthenticated,
+            guestMode
+          );
+
+          if (savedEvent) {
+            setEvent(savedEvent);
+          }
+
+          // Get step data
+          const savedStep = localStorage.getItem("eventStep");
+          if (savedStep) {
+            setStep(parseInt(savedStep));
+          }
+
+          // Get active category data
+          const savedCategory = localStorage.getItem("activeCategory");
+          if (savedCategory) {
+            setActiveCategory(savedCategory as ProviderCategory);
+          }
+        } catch (error) {
+          console.error("Error loading event data:", error);
+        }
+      };
+
+      loadData();
+    }
+  }, [isAuthenticated, guestMode, eventId]);
 
   // Save event data whenever it changes
   useEffect(() => {
-    if (event) {
-      eventService.saveEvent(event, isAuthenticated, guestMode);
+    // Only save if event data has been loaded and we're not in an initial loading state
+    if (event && !isLoadingEvent) {
+      // Make sure we preserve the ID when in edit mode
+      const eventToSave = {
+        ...event,
+        // Ensure we're using a consistent ID property with proper type handling
+        _id: isEditMode && (event._id || event.id || eventId) ? String(event._id || event.id || eventId) : undefined,
+        id: isEditMode && (event._id || event.id || eventId) ? String(event._id || event.id || eventId) : undefined
+      };
+      
+      // Debounce save to prevent too many requests
+      const timeoutId = setTimeout(() => {
+        // For edit mode, use updateEventById directly
+        if (isEditMode && (event._id || event.id || eventId)) {
+          const id = String(event._id || event.id || eventId);
+          console.log(`Updating existing event with ID: ${id}`);
+          eventService.updateEventById(id, eventToSave as Event, isAuthenticated)
+            .catch(error => {
+              console.error("Error updating event:", error);
+            });
+        } else {
+          // For new events, use saveEvent which now checks for ID
+          console.log("Saving event (new or update):", eventToSave);
+          eventService.saveEvent(eventToSave as Event, isAuthenticated, guestMode)
+            .catch(error => {
+              console.error("Error saving event:", error);
+            });
+        }
+      }, 500); // 500ms debounce
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [event, isAuthenticated, guestMode]);
+  }, [event, isAuthenticated, guestMode, isEditMode, eventId, isLoadingEvent]);
 
   // Save step data whenever it changes
   useEffect(() => {
-    eventService.saveEventStep(step, isAuthenticated, guestMode);
-  }, [step, isAuthenticated, guestMode]);
+    if (isEditMode && eventId) {
+      eventService.saveEventStep(step, isAuthenticated, guestMode, eventId);
+    } else {
+      eventService.saveEventStep(step, isAuthenticated, guestMode);
+    }
+  }, [step, isAuthenticated, guestMode, isEditMode, eventId]);
 
   // Save active category whenever it changes
   useEffect(() => {
     if (activeCategory) {
-      eventService.saveActiveCategory(
-        activeCategory,
-        isAuthenticated,
-        guestMode
-      );
+      if (isEditMode && eventId) {
+        eventService.saveActiveCategory(
+          activeCategory,
+          isAuthenticated,
+          guestMode,
+          eventId
+        );
+      } else {
+        eventService.saveActiveCategory(
+          activeCategory,
+          isAuthenticated,
+          guestMode
+        );
+      }
     }
-  }, [activeCategory, isAuthenticated, guestMode]);
+  }, [activeCategory, isAuthenticated, guestMode, isEditMode, eventId]);
 
   // Generate budget suggestions based on event type and guest count
   useEffect(() => {
@@ -535,7 +621,8 @@ export default function Create() {
   };
 
   const calculateTotal = () => {
-    return event.selectedProviders.reduce(
+    // Add a safety check to prevent the error when selectedProviders is undefined
+    return (event.selectedProviders || []).reduce(
       (total, provider) => total + provider.price,
       0
     );
@@ -586,6 +673,14 @@ export default function Create() {
     // Show confirmation
     alert("All data has been cleared. You can start fresh!");
   };
+
+  if (isLoadingEvent) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <div className="spinner animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">

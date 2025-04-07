@@ -4,12 +4,116 @@ import { Event } from '../types';
 // Define the base URL for API calls
 const API_URL = '/api';
 
+// Get all events from server (only works when authenticated)
+export const getAllEvents = async (isAuthenticated: boolean): Promise<Event[]> => {
+  if (!isAuthenticated) {
+    return [];
+  }
+  
+  try {
+    const response = await axios.get(`${API_URL}/events`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all events:', error);
+    return [];
+  }
+};
+
+// Get event by ID from server
+export const getEventById = async (eventId: string, isAuthenticated: boolean): Promise<Event | null> => {
+  if (!isAuthenticated) {
+    return null;
+  }
+  
+  try {
+    const response = await axios.get(`${API_URL}/events/${eventId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching event with ID ${eventId}:`, error);
+    return null;
+  }
+};
+
+// Create a new event on the server
+export const createNewEvent = async (event: Event, isAuthenticated: boolean): Promise<Event | null> => {
+  if (!isAuthenticated) {
+    localStorage.setItem('event', JSON.stringify(event));
+    return event;
+  }
+  
+  try {
+    // Remove any ID fields to ensure we create a new document
+    const newEvent = { ...event };
+    delete newEvent._id;
+    delete newEvent.id;
+    
+    const response = await axios.post(`${API_URL}/events/new`, newEvent);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating new event:', error);
+    return null;
+  }
+};
+
+// Update existing event by ID
+export const updateEventById = async (eventId: string, event: Event, isAuthenticated: boolean): Promise<Event | null> => {
+  if (!isAuthenticated) {
+    return null;
+  }
+  
+  try {
+    const response = await axios.put(`${API_URL}/events/${eventId}`, event);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating event with ID ${eventId}:`, error);
+    return null;
+  }
+};
+
+// Delete event by ID
+export const deleteEventById = async (eventId: string, isAuthenticated: boolean): Promise<boolean> => {
+  if (!isAuthenticated) {
+    return false;
+  }
+  
+  try {
+    await axios.delete(`${API_URL}/events/${eventId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting event with ID ${eventId}:`, error);
+    return false;
+  }
+};
+
+// Legacy functions
+
 // Save event to server or localStorage based on authentication status
 export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestMode: boolean): Promise<Event> => {
   if (isAuthenticated && !isGuestMode) {
-    // Save to server
+    // Check if the event already has an ID, which means it exists
+    if (event._id || event.id) {
+      const eventId = event._id || event.id;
+      try {
+        // Always use PUT for updating an existing event
+        const response = await axios.put(`${API_URL}/events/${eventId}`, event);
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating event with ID ${eventId}:`, error);
+        // Fallback to localStorage if API call fails
+        localStorage.setItem('event', JSON.stringify(event));
+        return event;
+      }
+    }
+    
+    // Create new event on server (only if no ID)
     try {
-      const response = await axios.post(`${API_URL}/events`, event);
+      // Remove any potential undefined ID fields before creating
+      const newEvent = { ...event };
+      delete newEvent._id;
+      delete newEvent.id;
+      
+      // Use the dedicated endpoint for creating new events
+      const response = await axios.post(`${API_URL}/events/new`, newEvent);
       return response.data;
     } catch (error) {
       console.error('Error saving event to server:', error);
@@ -29,7 +133,7 @@ export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean): 
   if (isAuthenticated && !isGuestMode) {
     // Get from server
     try {
-      const response = await axios.get(`${API_URL}/events`);
+      const response = await axios.get(`${API_URL}/events/current`);
       return response.data;
     } catch (error) {
       console.error('Error fetching event from server:', error);
@@ -45,11 +149,12 @@ export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean): 
 };
 
 // Save event step to server or localStorage
-export const saveEventStep = async (step: number, isAuthenticated: boolean, isGuestMode: boolean): Promise<void> => {
+export const saveEventStep = async (step: number, isAuthenticated: boolean, isGuestMode: boolean, eventId?: string): Promise<void> => {
   if (isAuthenticated && !isGuestMode) {
     // Save to server
     try {
-      await axios.patch(`${API_URL}/events/step`, { step });
+      const payload = eventId ? { step, eventId } : { step };
+      await axios.patch(`${API_URL}/events/step`, payload);
     } catch (error) {
       console.error('Error saving event step to server:', error);
       // Fallback to localStorage
@@ -62,11 +167,12 @@ export const saveEventStep = async (step: number, isAuthenticated: boolean, isGu
 };
 
 // Save active category to server or localStorage
-export const saveActiveCategory = async (category: string, isAuthenticated: boolean, isGuestMode: boolean): Promise<void> => {
+export const saveActiveCategory = async (category: string, isAuthenticated: boolean, isGuestMode: boolean, eventId?: string): Promise<void> => {
   if (isAuthenticated && !isGuestMode) {
     // Save to server
     try {
-      await axios.patch(`${API_URL}/events/category`, { activeCategory: category });
+      const payload = eventId ? { activeCategory: category, eventId } : { activeCategory: category };
+      await axios.patch(`${API_URL}/events/category`, payload);
     } catch (error) {
       console.error('Error saving active category to server:', error);
       // Fallback to localStorage
@@ -83,7 +189,7 @@ export const deleteEvent = async (isAuthenticated: boolean): Promise<void> => {
   if (isAuthenticated) {
     // Delete from server
     try {
-      await axios.delete(`${API_URL}/events`);
+      await axios.delete(`${API_URL}/events/current`);
     } catch (error) {
       console.error('Error deleting event from server:', error);
     }
@@ -95,11 +201,12 @@ export const deleteEvent = async (isAuthenticated: boolean): Promise<void> => {
   localStorage.removeItem('activeCategory');
 };
 
-// Clear all guest data from localStorage
+// Clear guest data when switching to authenticated mode
 export const clearGuestData = (): void => {
   localStorage.removeItem('event');
   localStorage.removeItem('eventStep');
   localStorage.removeItem('activeCategory');
+  localStorage.removeItem('guestMode');
 };
 
 export default {
@@ -108,5 +215,11 @@ export default {
   saveEventStep,
   saveActiveCategory,
   deleteEvent,
-  clearGuestData
+  clearGuestData,
+  // New multi-event functions
+  getAllEvents,
+  getEventById,
+  createNewEvent,
+  updateEventById,
+  deleteEventById
 }; 
