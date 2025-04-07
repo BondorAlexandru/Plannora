@@ -48,8 +48,13 @@ const Preview = () => {
   useEffect(() => {
     if (event && isOverBudget) {
       generateBudgetSuggestions();
+      
+      // Auto-show budget suggestions when tips are enabled
+      if (showTips) {
+        setShowBudgetSuggestions(true);
+      }
     }
-  }, [event]);
+  }, [event, showTips]);
 
   // Function to find cheaper alternatives for expensive services
   const generateBudgetSuggestions = () => {
@@ -215,7 +220,7 @@ const Preview = () => {
                   </p>
                 </div>
               </div>
-              {isOverBudget && suggestions.length > 0 && !showBudgetSuggestions && (
+              {isOverBudget && suggestions.length > 0 && !showBudgetSuggestions && showTips && (
                 <button
                   onClick={() => setShowBudgetSuggestions(true)}
                   className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-2 block w-full text-center"
@@ -443,7 +448,7 @@ const Preview = () => {
                         <p className="text-red-500 text-sm">
                           You're ${overBudgetAmount.toLocaleString()} over budget
                         </p>
-                        {suggestions.length > 0 && !showBudgetSuggestions && (
+                        {suggestions.length > 0 && !showBudgetSuggestions && showTips && (
                           <button
                             onClick={() => setShowBudgetSuggestions(true)}
                             className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-1"
