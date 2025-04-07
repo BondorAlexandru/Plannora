@@ -59,7 +59,7 @@ const Preview = () => {
       // Get alternative providers in the same category with lower prices
       const alternatives = providers.filter(p => 
         p.category === provider.category && 
-        p.price < provider.price && 
+        p.price < (provider.originalPrice || provider.price) && 
         !event.selectedProviders.some(sp => sp.id === p.id)
       ).sort((a, b) => b.rating - a.rating);
       
@@ -67,7 +67,7 @@ const Preview = () => {
         newSuggestions.push({
           originalProvider: provider,
           alternatives: alternatives.slice(0, 3), // Get top 3 alternatives by rating
-          savings: provider.price - alternatives[0].price
+          savings: provider.price - (alternatives[0].price * (provider.isPerPerson ? event.guestCount : 1))
         });
       }
     });
@@ -112,12 +112,18 @@ const Preview = () => {
   const handleReplaceProvider = (originalId: string, newProvider: typeof providers[0]) => {
     if (!event) return;
     
+    // Calculate actual price for the new provider if it's per-person
+    const isPerPerson = newProvider.category === "Catering";
+    const actualPrice = isPerPerson ? newProvider.price * event.guestCount : newProvider.price;
+    
     const updatedProviders = event.selectedProviders.map(provider => {
       if (provider.id === originalId) {
         return {
           id: newProvider.id,
           name: newProvider.name,
-          price: newProvider.price,
+          price: actualPrice,
+          originalPrice: newProvider.price,
+          isPerPerson,
           category: newProvider.category,
           image: newProvider.image
         };
@@ -146,238 +152,285 @@ const Preview = () => {
       </h1>
 
       {event ? (
-        <div id="quote-content">
-          <div className="bg-white rounded-xl shadow-fun p-6 mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-heading text-primary-700">
-                {event.name || "Your Event"}
-              </h2>
-              <Link
-                to="/create"
-                className="btn-secondary text-sm py-1.5 px-3"
-              >
-                Edit Event
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-              <div>
-                <p className="text-gray-600">
-                  <span className="font-medium">Date:</span>{" "}
-                  {new Date(event.date).toLocaleDateString()}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-medium">Location:</span>{" "}
-                  {event.location}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-medium">Event Type:</span>{" "}
-                  {event.eventType}
-                </p>
+        <div>
+          {/* Sticky Budget Summary */}
+          <div className="sticky top-4 z-10 mb-4">
+            <div className="bg-white rounded-xl shadow-fun p-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-heading text-primary-700">
+                  Budget: ${event.budget?.toLocaleString()}
+                </h2>
+                <div className="text-right">
+                  <p className={`font-heading font-bold ${isOverBudget ? "text-red-500" : "text-green-500"}`}>
+                    Total: ${calculateTotal().toLocaleString()} 
+                    {isOverBudget && <span className="text-red-500 text-sm ml-1">(${overBudgetAmount.toLocaleString()} over)</span>}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-600">
-                  <span className="font-medium">Guest Count:</span>{" "}
-                  {event.guestCount}
-                </p>
-                <p className="text-gray-600 mr-2">
-                  <span className="font-medium">Budget:</span>{" "}
-                  <span
-                    className={isOverBudget ? "text-red-500 font-bold" : ""}
-                  >
-                    ${event.budget?.toLocaleString()}
-                  </span>
-                </p>
-              </div>
+              {isOverBudget && suggestions.length > 0 && !showBudgetSuggestions && (
+                <button
+                  onClick={() => setShowBudgetSuggestions(true)}
+                  className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-2 block w-full text-center"
+                >
+                  View budget optimization suggestions
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Budget Optimization Suggestions */}
-          {isOverBudget && suggestions.length > 0 && (
-            <div className="mb-8">
+          
+          <div id="quote-content">
+            <div className="bg-white rounded-xl shadow-fun p-6 mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-heading text-primary-700">
-                  Budget Optimization
+                  {event.name || "Your Event"}
                 </h2>
-                <button
-                  onClick={() => setShowBudgetSuggestions(!showBudgetSuggestions)}
-                  className="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center"
+                <Link
+                  to="/create"
+                  className="btn-secondary text-sm py-1.5 px-3"
                 >
-                  {showBudgetSuggestions ? "Hide Suggestions" : "Show Suggestions"}
-                  {showBudgetSuggestions ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
+                  Edit Event
+                </Link>
               </div>
-              
-              <div className={`bg-festive-yellow-50 rounded-xl shadow-fun p-4 transition-all duration-300 ${showBudgetSuggestions ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                <div className="bg-white rounded-lg p-4 mb-4">
-                  <div className="flex items-center mb-2">
-                    <span className="text-festive-yellow-500 text-xl mr-2">💰</span>
-                    <h3 className="font-heading text-lg text-gray-800">You're ${overBudgetAmount.toLocaleString()} over budget</h3>
-                  </div>
-                  <p className="text-gray-600 mb-3">
-                    Here are some options to help you stay within your budget:
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div>
+                  <p className="text-gray-600">
+                    <span className="font-medium">Date:</span>{" "}
+                    {new Date(event.date).toLocaleDateString()}
                   </p>
-                  
-                  <div className="space-y-4">
-                    {suggestions.map((suggestion, index) => (
-                      <div key={index} className="border border-gray-100 rounded-lg overflow-hidden">
-                        <div className="p-3 bg-gray-50 flex justify-between items-center">
-                          <div className="flex items-center">
-                            <img 
-                              src={suggestion.originalProvider.image} 
-                              alt={suggestion.originalProvider.name}
-                              className="w-10 h-10 rounded-full object-cover mr-3"
-                            />
-                            <div>
-                              <p className="font-medium">{suggestion.originalProvider.name}</p>
-                              <p className="text-sm text-gray-500">${suggestion.originalProvider.price.toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <span className="text-gray-400">→</span>
-                        </div>
-                        
-                        <div className="p-3">
-                          <p className="text-sm text-gray-600 mb-2">Potential savings: <span className="text-green-600 font-bold">${suggestion.savings.toLocaleString()}</span></p>
-                          
-                          <div className="space-y-2">
-                            {suggestion.alternatives.map((alt) => (
-                              <div key={alt.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                                <div className="flex items-center">
-                                  <img 
-                                    src={alt.image}
-                                    alt={alt.name}
-                                    className="w-8 h-8 rounded-full object-cover mr-2"
-                                  />
-                                  <div>
-                                    <p className="font-medium text-sm">{alt.name}</p>
-                                    <div className="flex items-center">
-                                      <span className="text-yellow-400 mr-1 text-xs">★</span>
-                                      <span className="text-xs text-gray-500">{alt.rating}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center">
-                                  <p className="text-primary-600 font-medium text-sm mr-3">${alt.price.toLocaleString()}</p>
-                                  <button 
-                                    onClick={() => handleReplaceProvider(suggestion.originalProvider.id, alt)}
-                                    className="text-xs bg-primary-100 hover:bg-primary-200 text-primary-700 py-1 px-2 rounded transition-colors"
-                                  >
-                                    Switch
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-gray-600">
+                    <span className="font-medium">Location:</span>{" "}
+                    {event.location}
+                  </p>
+                  <p className="text-gray-600">
+                    <span className="font-medium">Event Type:</span>{" "}
+                    {event.eventType}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600">
+                    <span className="font-medium">Guest Count:</span>{" "}
+                    {event.guestCount}
+                  </p>
+                  <p className="text-gray-600 mr-2">
+                    <span className="font-medium">Budget:</span>{" "}
+                    <span
+                      className={isOverBudget ? "text-red-500 font-bold" : ""}
+                    >
+                      ${event.budget?.toLocaleString()}
+                    </span>
+                  </p>
                 </div>
               </div>
             </div>
-          )}
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-heading text-primary-700 mb-4">
-              Selected Services
-            </h2>
-
-            {event.selectedProviders.length > 0 ? (
-              <div className="bg-white rounded-xl shadow-fun p-4">
-                {event.selectedProviders.map((provider) => (
-                  <div
-                    key={provider.id}
-                    className="flex justify-between items-center p-3 border-b border-gray-100 last:border-0"
+            {/* Budget Optimization Suggestions */}
+            {isOverBudget && suggestions.length > 0 && (
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-heading text-primary-700">
+                    Budget Optimization
+                  </h2>
+                  <button
+                    onClick={() => setShowBudgetSuggestions(!showBudgetSuggestions)}
+                    className="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center"
                   >
-                    <div className="flex items-center">
-                      <img
-                        src={provider.image}
-                        alt={provider.name}
-                        className="w-12 h-12 rounded-full object-cover mr-4"
-                      />
+                    {showBudgetSuggestions ? "Hide Suggestions" : "Show Suggestions"}
+                    {showBudgetSuggestions ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                
+                <div className={`bg-festive-yellow-50 rounded-xl shadow-fun p-4 transition-all duration-300 ${showBudgetSuggestions ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                  <div className="bg-white rounded-lg p-4 mb-4">
+                    <div className="flex items-center mb-2">
+                      <span className="text-festive-yellow-500 text-xl mr-2">💰</span>
+                      <h3 className="font-heading text-lg text-gray-800">You're ${overBudgetAmount.toLocaleString()} over budget</h3>
+                    </div>
+                    <p className="text-gray-600 mb-3">
+                      Here are some options to help you stay within your budget:
+                    </p>
+                    
+                    <div className="space-y-4">
+                      {suggestions.map((suggestion, index) => (
+                        <div key={index} className="border border-gray-100 rounded-lg overflow-hidden">
+                          <div className="p-3 bg-gray-50 flex justify-between items-center">
+                            <div className="flex items-center">
+                              <img 
+                                src={suggestion.originalProvider.image} 
+                                alt={suggestion.originalProvider.name}
+                                className="w-10 h-10 rounded-full object-cover mr-3"
+                              />
+                              <div>
+                                <p className="font-medium">{suggestion.originalProvider.name}</p>
+                                <p className="text-sm text-gray-500">
+                                  ${suggestion.originalProvider.price.toLocaleString()}
+                                  {suggestion.originalProvider.isPerPerson && 
+                                    <span className="text-xs"> (${suggestion.originalProvider.originalPrice?.toLocaleString()} × {event.guestCount} guests)</span>
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-gray-400">→</span>
+                          </div>
+                          
+                          <div className="p-3">
+                            <p className="text-sm text-gray-600 mb-2">Potential savings: <span className="text-green-600 font-bold">${suggestion.savings.toLocaleString()}</span></p>
+                            
+                            <div className="space-y-2">
+                              {suggestion.alternatives.map((alt) => {
+                                const altPrice = alt.price * (suggestion.originalProvider.isPerPerson ? event.guestCount : 1);
+                                return (
+                                  <div key={alt.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                                    <div className="flex items-center">
+                                      <img 
+                                        src={alt.image}
+                                        alt={alt.name}
+                                        className="w-8 h-8 rounded-full object-cover mr-2"
+                                      />
+                                      <div>
+                                        <p className="font-medium text-sm">{alt.name}</p>
+                                        <div className="flex items-center">
+                                          <span className="text-yellow-400 mr-1 text-xs">★</span>
+                                          <span className="text-xs text-gray-500">{alt.rating}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <p className="text-primary-600 font-medium text-sm mr-3">
+                                        ${altPrice.toLocaleString()}
+                                        {suggestion.originalProvider.isPerPerson && 
+                                          <span className="text-xs text-gray-500 block"> 
+                                            (${alt.price} × {event.guestCount})
+                                          </span>
+                                        }
+                                      </p>
+                                      <button 
+                                        onClick={() => handleReplaceProvider(suggestion.originalProvider.id, alt)}
+                                        className="text-xs bg-primary-100 hover:bg-primary-200 text-primary-700 py-1 px-2 rounded transition-colors"
+                                      >
+                                        Switch
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mb-8">
+              <h2 className="text-2xl font-heading text-primary-700 mb-4">
+                Selected Services
+              </h2>
+
+              {event.selectedProviders.length > 0 ? (
+                <div className="bg-white rounded-xl shadow-fun p-4">
+                  {event.selectedProviders.map((provider) => (
+                    <div
+                      key={provider.id}
+                      className="flex justify-between items-center p-3 border-b border-gray-100 last:border-0"
+                    >
+                      <div className="flex items-center">
+                        <img
+                          src={provider.image}
+                          alt={provider.name}
+                          className="w-12 h-12 rounded-full object-cover mr-4"
+                        />
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            {provider.name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {provider.category}
+                            {provider.isPerPerson && provider.originalPrice && (
+                              <span className="ml-1 text-xs">
+                                (${provider.originalPrice.toLocaleString()} per person × {event.guestCount})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
                       <div>
-                        <p className="font-medium text-gray-800">
-                          {provider.name}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {provider.category}
+                        <p className="font-medium text-primary-600">
+                          ${provider.price.toLocaleString()}
                         </p>
                       </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-primary-600">
-                        ${provider.price.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
 
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <p className="font-bold text-lg">Total Cost:</p>
-                    <p
-                      className={`font-bold text-lg ${
-                        isOverBudget ? "text-red-500" : "text-primary-600"
-                      }`}
-                    >
-                      ${calculateTotal().toLocaleString()}
-                    </p>
-                  </div>
-                  {isOverBudget && (
-                    <div className="mt-1">
-                      <p className="text-red-500 text-sm">
-                        You're ${overBudgetAmount.toLocaleString()} over budget
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold text-lg">Total Cost:</p>
+                      <p
+                        className={`font-bold text-lg ${
+                          isOverBudget ? "text-red-500" : "text-primary-600"
+                        }`}
+                      >
+                        ${calculateTotal().toLocaleString()}
                       </p>
-                      {suggestions.length > 0 && !showBudgetSuggestions && (
-                        <button
-                          onClick={() => setShowBudgetSuggestions(true)}
-                          className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-1"
-                        >
-                          View budget optimization suggestions
-                        </button>
-                      )}
                     </div>
-                  )}
+                    {isOverBudget && (
+                      <div className="mt-1">
+                        <p className="text-red-500 text-sm">
+                          You're ${overBudgetAmount.toLocaleString()} over budget
+                        </p>
+                        {suggestions.length > 0 && !showBudgetSuggestions && (
+                          <button
+                            onClick={() => setShowBudgetSuggestions(true)}
+                            className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-1"
+                          >
+                            View budget optimization suggestions
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl shadow-fun p-6 text-center">
-                <p className="text-gray-500 mb-4">
-                  Welcome to the quote preview! No services selected yet.
-                </p>
-                <Link to="/create" className="btn-primary">
-                  Add Services
-                </Link>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-fun p-6 text-center">
+                  <p className="text-gray-500 mb-4">
+                    Welcome to the quote preview! No services selected yet.
+                  </p>
+                  <Link to="/create" className="btn-primary">
+                    Add Services
+                  </Link>
+                </div>
+              )}
+            </div>
 
-          <div className="bg-primary-50 rounded-xl p-6 shadow-fun mb-8">
-            <h3 className="text-xl font-heading text-primary-700 mb-4">
-              Booking Information
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Ready to make your event a reality? Here's what you need to know
-              about booking these services.
-            </p>
-            <div className="bg-white rounded-lg p-4 mb-4">
-              <h4 className="font-medium text-gray-800 mb-2">Next Steps:</h4>
-              <ul className="list-disc pl-5 text-gray-600 space-y-1">
-                <li>
-                  Review your selections and confirm they meet your needs
-                </li>
-                <li>Contact providers to check availability for your date</li>
-                <li>Request contracts and review terms</li>
-                <li>Pay deposits to secure your bookings</li>
-              </ul>
+            <div className="bg-primary-50 rounded-xl p-6 shadow-fun mb-8">
+              <h3 className="text-xl font-heading text-primary-700 mb-4">
+                Booking Information
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Ready to make your event a reality? Here's what you need to know
+                about booking these services.
+              </p>
+              <div className="bg-white rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-gray-800 mb-2">Next Steps:</h4>
+                <ul className="list-disc pl-5 text-gray-600 space-y-1">
+                  <li>
+                    Review your selections and confirm they meet your needs
+                  </li>
+                  <li>Contact providers to check availability for your date</li>
+                  <li>Request contracts and review terms</li>
+                  <li>Pay deposits to secure your bookings</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>

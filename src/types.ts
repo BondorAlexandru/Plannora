@@ -17,4 +17,6 @@ export interface SelectedProvider {
   price: number;
   category: ProviderCategory;
   image: string;
+  isPerPerson?: boolean;
+  originalPrice?: number;
 } 

@@ -51,7 +51,6 @@ export default function Create() {
   useEffect(() => {
     if (event.budget > 0 && event.guestCount > 0) {
       const suggestions = [];
-      const perPersonBudget = event.budget / event.guestCount;
       
       // Venue suggestion
       if (!event.selectedProviders.some(p => p.category === ProviderCategory.VENUE)) {
@@ -123,7 +122,6 @@ export default function Create() {
   useEffect(() => {
     if (event.selectedProviders.length > 0 && event.budget > 0) {
       const total = calculateTotal();
-      const remaining = event.budget - total;
       const percentUsed = (total / event.budget) * 100;
       
       // Show warning when budget is close to being exceeded or already exceeded
@@ -148,11 +146,18 @@ export default function Create() {
   const handleSelectProvider = (provider: SelectedProvider) => {
     const isAlreadySelected = event.selectedProviders.some(p => p.id === provider.id);
     
+    // Calculate actual price based on whether this is a per-person service
+    const isPerPerson = provider.category === ProviderCategory.CATERING;
+    const actualPrice = isPerPerson ? provider.price * event.guestCount : provider.price;
+    
     if (isAlreadySelected) {
       // Show budget impact for removal
+      const selectedProvider = event.selectedProviders.find(p => p.id === provider.id);
+      const priceToRemove = selectedProvider?.price || 0;
+      
       setBudgetImpact({
         provider,
-        impact: `Removing ${provider.name} will free up $${provider.price.toLocaleString()} from your budget.`,
+        impact: `Removing ${provider.name} will free up $${priceToRemove.toLocaleString()} from your budget.`,
         isPositive: true
       });
       
@@ -162,7 +167,7 @@ export default function Create() {
       }));
     } else {
       // Check budget impact before adding
-      const newTotal = calculateTotal() + provider.price;
+      const newTotal = calculateTotal() + actualPrice;
       const remaining = event.budget - newTotal;
       const percentUsed = (newTotal / event.budget) * 100;
       
@@ -177,9 +182,17 @@ export default function Create() {
         });
       }
       
+      // Store the provider with additional metadata
+      const providerWithActualPrice = {
+        ...provider,
+        price: actualPrice,
+        originalPrice: provider.price,
+        isPerPerson
+      };
+      
       setEvent(prev => ({
         ...prev,
-        selectedProviders: [...prev.selectedProviders, provider]
+        selectedProviders: [...prev.selectedProviders, providerWithActualPrice]
       }));
     }
     
@@ -188,6 +201,26 @@ export default function Create() {
       setBudgetImpact(null);
     }, 5000);
   };
+  
+  // Recalculate per-person prices when guest count changes
+  useEffect(() => {
+    if (event.selectedProviders.length > 0) {
+      const updatedProviders = event.selectedProviders.map(provider => {
+        if (provider.isPerPerson && provider.originalPrice) {
+          return {
+            ...provider,
+            price: provider.originalPrice * event.guestCount
+          };
+        }
+        return provider;
+      });
+      
+      setEvent(prev => ({
+        ...prev,
+        selectedProviders: updatedProviders
+      }));
+    }
+  }, [event.guestCount]);
   
   const handleSubmit = () => {
     localStorage.setItem('event', JSON.stringify(event));
@@ -256,102 +289,104 @@ export default function Create() {
         </div>
       ) : (
         <div>
-          {/* Budget Summary and Suggestions */}
+          {/* Budget Summary - Make it sticky */}
           {event.budget > 0 && (
-            <div className="bg-white rounded-xl shadow-fun p-6 mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-heading font-bold text-gray-800">Budget Summary</h2>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Your Budget</p>
-                  <p className="text-xl font-heading font-bold text-primary-600">${event.budget.toLocaleString()}</p>
+            <div className="sticky top-4 z-10 mb-8">
+              <div className="bg-white rounded-xl shadow-fun p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-heading font-bold text-gray-800">Budget Summary</h2>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Your Budget</p>
+                    <p className="text-xl font-heading font-bold text-primary-600">${event.budget.toLocaleString()}</p>
+                  </div>
                 </div>
+                
+                {/* Budget progress bar */}
+                <div className="mb-2">
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                      className={`h-4 rounded-full ${
+                        percentUsed <= 70 ? 'bg-green-500' : 
+                        percentUsed <= 90 ? 'bg-yellow-500' : 
+                        'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs mt-1">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <p className="text-sm text-gray-600">Current Total</p>
+                    <p className={`text-xl font-heading font-bold ${isOverBudget ? 'text-red-500' : 'text-green-500'}`}>
+                      ${calculateTotal().toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Remaining</p>
+                    <p className={`text-xl font-heading font-bold ${isOverBudget ? 'text-red-500' : 'text-green-500'}`}>
+                      ${budgetRemaining.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Budget impact alert */}
+                {budgetImpact && (
+                  <div className={`rounded-lg p-4 mb-4 flex items-start ${
+                    budgetImpact.isPositive ? 'bg-green-50 border border-green-100' : 'bg-yellow-50 border border-yellow-100'
+                  }`}>
+                    <span className="mr-2">{budgetImpact.isPositive ? '✅' : '⚠️'}</span>
+                    <p className={budgetImpact.isPositive ? 'text-green-600' : 'text-yellow-700'}>
+                      {budgetImpact.impact}
+                    </p>
+                  </div>
+                )}
+                
+                {isOverBudget && (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-4">
+                    <p className="text-red-600 font-medium">
+                      Your selections exceed your budget by ${(calculateTotal() - event.budget).toLocaleString()}.
+                      Consider removing some items or adjusting your budget.
+                    </p>
+                  </div>
+                )}
+                
+                {showBudgetAlert && !isOverBudget && (
+                  <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-4">
+                    <p className="text-yellow-700 font-medium">
+                      You're using {percentUsed.toFixed(1)}% of your budget! Choose remaining services carefully.
+                    </p>
+                  </div>
+                )}
+                
+                {budgetSuggestions.length > 0 && (
+                  <div className="bg-festive-yellow-50 border border-festive-yellow-200 rounded-lg p-4">
+                    <h3 className="text-lg font-heading font-semibold text-primary-700 mb-2">Budget Suggestions</h3>
+                    <ul className="space-y-2">
+                      {budgetSuggestions.map((suggestion, index) => (
+                        <li key={index} className="flex items-start">
+                          <span className="text-festive-yellow-500 mr-2">💡</span>
+                          <div>
+                            <p className="font-medium text-gray-800">{suggestion.category}</p>
+                            <p className="text-sm text-gray-600">{suggestion.suggestion}</p>
+                            <button 
+                              onClick={() => handleSetActiveCategory(suggestion.category)}
+                              className="text-sm text-primary-600 hover:text-primary-800 mt-1 underline"
+                            >
+                              View options
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-              
-              {/* Budget progress bar */}
-              <div className="mb-2">
-                <div className="w-full bg-gray-200 rounded-full h-4">
-                  <div 
-                    className={`h-4 rounded-full ${
-                      percentUsed <= 70 ? 'bg-green-500' : 
-                      percentUsed <= 90 ? 'bg-yellow-500' : 
-                      'bg-red-500'
-                    }`}
-                    style={{ width: `${Math.min(percentUsed, 100)}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between text-xs mt-1">
-                  <span>0%</span>
-                  <span>50%</span>
-                  <span>100%</span>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <p className="text-sm text-gray-600">Current Total</p>
-                  <p className={`text-xl font-heading font-bold ${isOverBudget ? 'text-red-500' : 'text-green-500'}`}>
-                    ${calculateTotal().toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Remaining</p>
-                  <p className={`text-xl font-heading font-bold ${isOverBudget ? 'text-red-500' : 'text-green-500'}`}>
-                    ${budgetRemaining.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Budget impact alert */}
-              {budgetImpact && (
-                <div className={`rounded-lg p-4 mb-4 flex items-start ${
-                  budgetImpact.isPositive ? 'bg-green-50 border border-green-100' : 'bg-yellow-50 border border-yellow-100'
-                }`}>
-                  <span className="mr-2">{budgetImpact.isPositive ? '✅' : '⚠️'}</span>
-                  <p className={budgetImpact.isPositive ? 'text-green-600' : 'text-yellow-700'}>
-                    {budgetImpact.impact}
-                  </p>
-                </div>
-              )}
-              
-              {isOverBudget && (
-                <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-4">
-                  <p className="text-red-600 font-medium">
-                    Your selections exceed your budget by ${(calculateTotal() - event.budget).toLocaleString()}.
-                    Consider removing some items or adjusting your budget.
-                  </p>
-                </div>
-              )}
-              
-              {showBudgetAlert && !isOverBudget && (
-                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-4">
-                  <p className="text-yellow-700 font-medium">
-                    You're using {percentUsed.toFixed(1)}% of your budget! Choose remaining services carefully.
-                  </p>
-                </div>
-              )}
-              
-              {budgetSuggestions.length > 0 && (
-                <div className="bg-festive-yellow-50 border border-festive-yellow-200 rounded-lg p-4">
-                  <h3 className="text-lg font-heading font-semibold text-primary-700 mb-2">Budget Suggestions</h3>
-                  <ul className="space-y-2">
-                    {budgetSuggestions.map((suggestion, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="text-festive-yellow-500 mr-2">💡</span>
-                        <div>
-                          <p className="font-medium text-gray-800">{suggestion.category}</p>
-                          <p className="text-sm text-gray-600">{suggestion.suggestion}</p>
-                          <button 
-                            onClick={() => handleSetActiveCategory(suggestion.category)}
-                            className="text-sm text-primary-600 hover:text-primary-800 mt-1 underline"
-                          >
-                            View options
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           )}
 
@@ -389,6 +424,10 @@ export default function Create() {
                       {categoryProviders.map(provider => {
                         const isSelected = event.selectedProviders.some(p => p.id === provider.id);
                         const isOverBudgetItem = event.budget > 0 && provider.price > budgetRemaining && !isSelected;
+                        const isPerPerson = provider.category === ProviderCategory.CATERING;
+                        const displayPrice = isPerPerson 
+                          ? `$${provider.price.toLocaleString()} per person (Total: $${(provider.price * event.guestCount).toLocaleString()})`
+                          : `$${provider.price.toLocaleString()}`;
                         
                         return (
                           <div 
@@ -425,7 +464,7 @@ export default function Create() {
                             <p className="text-sm text-gray-600 mb-2">{provider.description}</p>
                             <div className="flex justify-between items-center">
                               <span className={`font-heading font-bold ${isOverBudgetItem ? 'text-red-600' : 'text-primary-600'}`}>
-                                ${provider.price.toLocaleString()}
+                                {displayPrice}
                               </span>
                               {isSelected && (
                                 <span className="bg-primary-100 text-primary-600 text-xs px-2 py-1 rounded-full">
