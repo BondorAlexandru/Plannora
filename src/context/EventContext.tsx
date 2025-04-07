@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Provider, ProviderCategory } from '../data/mockData';
-import { Event, SelectedProvider } from '../types';
+import { Event } from '../types';
 
 export interface EventItem {
   provider: Provider;

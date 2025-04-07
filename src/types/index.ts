@@ -1,4 +1,4 @@
-import { Provider, ProviderCategory } from '../data/mockData';
+import { ProviderCategory } from '../data/mockData';
 
 export interface Service {
   id: string;
