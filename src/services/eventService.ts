@@ -62,7 +62,8 @@ export const createNewEvent = async (event: Event, isAuthenticated: boolean): Pr
     delete newEvent._id;
     delete newEvent.id;
     
-    // Use the specific endpoint for creating new events
+    // Always use /events/new endpoint to ensure a new event is created
+    // and not overwriting an existing one with the same name
     const response = await axios.post(`${API_URL}/events/new`, newEvent);
     return response.data;
   } catch (error) {
@@ -133,14 +134,15 @@ export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestM
       }
     } else {
       try {
-        // Use POST only for new events
-        console.log("Creating new event using POST");
-        const newEvent = await createNewEvent(event, isAuthenticated);
-        if (newEvent) {
-          return newEvent;
-        }
-        localStorage.setItem('event', JSON.stringify(event));
-        return event;
+        // Use POST to /events/new to ensure we create a new event and don't overwrite existing ones
+        console.log("Creating new event using POST to /events/new");
+        // Remove any ID fields to ensure we create a new document
+        const newEvent = { ...event };
+        delete newEvent._id;
+        delete newEvent.id;
+        
+        const response = await axios.post(`${API_URL}/events/new`, newEvent);
+        return response.data;
       } catch (error) {
         console.error('Error creating new event:', error);
         localStorage.setItem('event', JSON.stringify(event));

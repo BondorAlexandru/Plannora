@@ -5,9 +5,10 @@ import { Event } from '../types';
 interface EventFormProps {
   initialValues?: Event;
   onSubmit?: (event: Partial<Event>) => void;
+  isExistingEvent?: boolean;
 }
 
-export default function EventForm({ initialValues, onSubmit }: EventFormProps) {
+export default function EventForm({ initialValues, onSubmit, isExistingEvent }: EventFormProps) {
   const { eventConfig, setEventName, setEventDate, setGuestCount } = useEvent();
   
   // Use initialValues if provided (for the Create component) or create default values
@@ -168,7 +169,7 @@ export default function EventForm({ initialValues, onSubmit }: EventFormProps) {
             type="submit"
             className="w-full bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white font-bold py-3 px-6 rounded-full shadow-button transform transition hover:-translate-y-1"
           >
-            Continue to Select Services
+            {isExistingEvent ? "Continue to Select Services" : "Create New Event"}
           </button>
         </div>
       )}

@@ -144,7 +144,7 @@ export default function Create() {
   };
   
   // Helper function to save the current event state
-  const saveCurrentEvent = () => {
+  const saveCurrentEvent = (forcePost = false) => {
     if (!event || isLoadingEvent) return;
     
     // Check if this event already has an ID (either from URL or previously created)
@@ -157,8 +157,9 @@ export default function Create() {
       id: eventHasId ? (event._id || eventId) : undefined
     };
     
-    if (eventHasId) {
-      // ALWAYS use PUT for ANY event that already has an ID
+    // If the event has an ID or if we're not forcing a POST, use PUT
+    if (eventHasId && !forcePost) {
+      // Use PUT for existing events
       const id = String(event._id || eventId);
       console.log(`Updating existing event with ID ${id} using PUT`);
       eventService.updateEventById(id, eventToSave as Event, isAuthenticated)
@@ -171,7 +172,7 @@ export default function Create() {
           console.error(`Error updating event with ID ${id}:`, error);
         });
     } else {
-      // ONLY use POST for brand new events that don't have an ID yet
+      // Use POST only for brand new events or when forcing POST
       console.log("Creating new event using POST");
       eventService.createNewEvent(eventToSave as Event, isAuthenticated)
         .then(newEvent => {
@@ -200,14 +201,21 @@ export default function Create() {
   useEffect(() => {
     // Only save if event data has been loaded and we're not in an initial loading state
     if (event && !isLoadingEvent) {
+      // Don't auto-save for brand new events without IDs - wait for step change to force POST
+      if (!eventId && !event._id) {
+        console.log("Skipping auto-save for new event - waiting for step change");
+        return;
+      }
+      
       // Debounce save to prevent too many requests
       const timeoutId = setTimeout(() => {
-        saveCurrentEvent();
+        // Only use PUT for updates
+        saveCurrentEvent(false); // Explicitly pass false to ensure only PUT is used
       }, 500); // 500ms debounce
       
       return () => clearTimeout(timeoutId);
     }
-  }, [event, isLoadingEvent]);
+  }, [event, isLoadingEvent, eventId]);
 
   // Save step data whenever it changes
   useEffect(() => {
@@ -378,14 +386,70 @@ export default function Create() {
     loadUserEvents();
   }, [step, isAuthenticated]);
 
+  // Modify the step change handler to create the event with POST when moving from step 1 to 2
+  const handleStepChange = (newStep: number) => {
+    // If going from step 1 to 2 for a new event
+    if (newStep === 2 && step === 1 && !hasValidEventId() && !event._id) {
+      // Force a POST to create the event when stepping from step 1 to 2
+      saveCurrentEvent(true); // Pass true to force POST
+      
+      // Short delay to allow the save to complete before changing steps
+      setTimeout(() => {
+        setStep(newStep);
+      }, 300);
+    } else {
+      // For existing events or other step changes, just change the step
+      setStep(newStep);
+    }
+  };
+
+  // Update handleEventSubmit to handle both event continuation and new event creation
   const handleEventSubmit = (eventData: Partial<Event>) => {
-    setEvent((prev) => ({
-      ...prev,
+    // Update the current event state with form data
+    const updatedEvent = {
+      ...event,
       ...eventData,
-    }));
+    };
     
-    // Use handleStepChange instead of directly setting step
-    handleStepChange(2);
+    setEvent(updatedEvent);
+    
+    // Check if we're continuing with an existing event or creating a new one
+    if (isEditMode || event._id) {
+      // For existing events, just move to step 2
+      setStep(2);
+    } else {
+      // For new events, directly call createNewEvent to ensure a POST request
+      console.log("Creating brand new event with POST");
+      eventService.createNewEvent(updatedEvent as Event, isAuthenticated)
+        .then(newEvent => {
+          if (newEvent && newEvent._id) {
+            console.log(`Successfully created new event with ID: ${newEvent._id}`);
+            
+            // Update state with the new ID
+            setEvent({
+              ...updatedEvent,
+              _id: newEvent._id,
+              id: newEvent._id
+            });
+            
+            // Set edit mode and update URL
+            setIsEditMode(true);
+            navigate(`/create?eventId=${newEvent._id}`, { replace: true });
+            
+            // Move to step 2 after a short delay
+            setTimeout(() => {
+              setStep(2);
+            }, 300);
+          }
+        })
+        .catch(error => {
+          console.error("Error creating new event:", error);
+          // Still move to step 2 even if there's an error (will use localStorage as fallback)
+          setTimeout(() => {
+            setStep(2);
+          }, 300);
+        });
+    }
   };
 
   // Find alternative services that fit within budget for a specific category
@@ -760,21 +824,29 @@ export default function Create() {
     }
   };
 
-  // Modify the step change handler to ensure we have a valid event before changing steps
-  const handleStepChange = (newStep: number) => {
-    // If going from step 1 to 2, make sure we have created the event first
-    if (newStep === 2 && step === 1 && !hasValidEventId()) {
-      // Force an immediate save of the current event before changing steps
-      saveCurrentEvent();
-      
-      // Short delay to allow the save to complete before changing steps
-      setTimeout(() => {
-        setStep(newStep);
-      }, 300);
-    } else {
-      // Otherwise just change the step
-      setStep(newStep);
-    }
+  // Add a function to handle creating a new event
+  const handleCreateNewEvent = () => {
+    // Clear form data and reset to default values
+    setEvent({
+      name: "",
+      date: new Date().toISOString().split("T")[0],
+      location: "",
+      guestCount: 0,
+      budget: 0,
+      eventType: "Party",
+      selectedProviders: [],
+      // Explicitly remove any ID fields
+      _id: undefined,
+      id: undefined
+    });
+    
+    // Reset edit mode and eventId parameters
+    setIsEditMode(false);
+    // Update URL to remove any eventId
+    navigate('/create', { replace: true });
+    
+    // Reset to step 1
+    setStep(1);
   };
 
   if (isLoadingEvent) {
@@ -810,11 +882,45 @@ export default function Create() {
 
       {step === 1 ? (
         <div className="bg-white rounded-xl shadow-fun p-6 md:p-8 transition-all">
+          {/* Add Continue/New Event options if we're editing an existing event */}
+          {(isEditMode || event._id) && (
+            <div className="mb-6 bg-primary-50 p-4 rounded-lg">
+              <div className="flex flex-col md:flex-row items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-heading font-semibold text-primary-700">
+                    Currently editing: {event.name || "Unnamed Event"}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Continue with this event or create a new one
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-3 md:mt-0">
+                  <button
+                    className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    onClick={() => handleStepChange(2)}
+                  >
+                    Continue
+                  </button>
+                  <button
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    onClick={handleCreateNewEvent}
+                  >
+                    Create New Event
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <h2 className="text-xl font-heading font-bold mb-6 text-center text-gray-800">
             Event Details
           </h2>
           
-          <EventForm initialValues={event} onSubmit={handleEventSubmit} />
+          <EventForm 
+            initialValues={event} 
+            onSubmit={handleEventSubmit} 
+            isExistingEvent={isEditMode || !!event._id}
+          />
           
           {isAuthenticated && (
             <div className="mt-8 pt-8 border-t border-gray-200">
