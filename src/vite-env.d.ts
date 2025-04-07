@@ -15,6 +15,16 @@ declare module 'react' {
   export interface FC<P = {}> {
     (props: P): JSX.Element;
   }
+
+  namespace React {
+    // Add ChangeEvent type
+    interface ChangeEvent<T = Element> extends SyntheticEvent<T> {
+      target: EventTarget & T;
+    }
+  }
+
+  // Add ChangeEvent export
+  export type ChangeEvent<T = Element> = React.ChangeEvent<T>;
 }
 
 declare module 'react-router-dom' {

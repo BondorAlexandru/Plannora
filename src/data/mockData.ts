@@ -36,6 +36,20 @@ export enum ProviderCategory {
   LIGHTING = 'Lighting',
   ENTERTAINMENT = 'Entertainment',
   FLOWERS = 'Flowers',
+  CAKE = 'Cake',
+  WEDDING_PLANNER = 'Wedding Planner',
+  VIDEOGRAPHY = 'Videography',
+  BARTENDING = 'Bartending',
+  FURNITURE_RENTAL = 'Furniture Rental',
+  INVITATION = 'Invitation',
+  OFFICIANT = 'Officiant',
+  HAIR_MAKEUP = 'Hair & Makeup',
+  SECURITY = 'Security',
+  SOUND_SYSTEM = 'Sound System',
+  JEWELRY = 'Jewelry',
+  SPECIAL_EFFECTS = 'Special Effects',
+  CHILDCARE = 'Childcare',
+  PHOTO_BOOTH = 'Photo Booth',
 }
 
 // Helper function to get offer by ID
@@ -182,6 +196,35 @@ export const providers: Provider[] = [
     image: 'https://images.pexels.com/photos/1170412/pexels-photo-1170412.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
+  // Additional Venues
+  {
+    id: 'venue-4',
+    name: 'Garden Paradise',
+    category: ProviderCategory.VENUE,
+    description: 'Enchanting garden venue with lush greenery and fountains',
+    price: 4500,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/1029599/pexels-photo-1029599.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'venue-5',
+    name: 'Historic Mansion',
+    category: ProviderCategory.VENUE,
+    description: 'Elegant 19th century mansion with classic architecture',
+    price: 6000,
+    rating: 4.5,
+    image: 'https://images.pexels.com/photos/1115804/pexels-photo-1115804.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'venue-6',
+    name: 'Vineyard Estates',
+    category: ProviderCategory.VENUE,
+    description: 'Picturesque vineyard with mountain views and wine tasting',
+    price: 5800,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/442116/pexels-photo-442116.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
   // Catering
   {
     id: 'catering-1',
@@ -277,6 +320,26 @@ export const providers: Provider[] = [
     price: 75,
     rating: 4.6,
     image: 'https://images.pexels.com/photos/5175537/pexels-photo-5175537.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // More Catering Options
+  {
+    id: 'catering-4',
+    name: 'Farm to Table',
+    category: ProviderCategory.CATERING,
+    description: 'Locally sourced organic ingredients with seasonal menu options',
+    price: 95,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/5379707/pexels-photo-5379707.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'catering-5',
+    name: 'Mediterranean Feast',
+    category: ProviderCategory.CATERING,
+    description: 'Authentic Mediterranean cuisine with mezze platters and kebabs',
+    price: 80,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/698857/pexels-photo-698857.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Music
@@ -426,5 +489,240 @@ export const providers: Provider[] = [
     price: 1100,
     rating: 4.7,
     image: 'https://images.pexels.com/photos/6913636/pexels-photo-6913636.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Wedding Planners
+  {
+    id: 'planner-1',
+    name: 'Dream Day Planners',
+    category: ProviderCategory.WEDDING_PLANNER,
+    description: 'Full-service wedding planning with 10+ years of experience',
+    price: 3500,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/7146292/pexels-photo-7146292.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'planner-2',
+    name: 'Eventful Horizons',
+    category: ProviderCategory.WEDDING_PLANNER,
+    description: 'Day-of coordination and partial planning services',
+    price: 1800,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/7148415/pexels-photo-7148415.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Cakes
+  {
+    id: 'cake-1',
+    name: 'Sweet Creations',
+    category: ProviderCategory.CAKE,
+    description: 'Custom designed cakes with gourmet flavors',
+    price: 800,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/1702373/pexels-photo-1702373.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'cake-2',
+    name: 'Artisan Bakery',
+    category: ProviderCategory.CAKE,
+    description: 'Hand-crafted wedding cakes with organic ingredients',
+    price: 950,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/1027811/pexels-photo-1027811.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Videography
+  {
+    id: 'video-1',
+    name: 'Cinematic Moments',
+    category: ProviderCategory.VIDEOGRAPHY,
+    description: 'Cinematic wedding films with drone footage and 4K quality',
+    price: 3200,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/3379944/pexels-photo-3379944.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'video-2',
+    name: 'Story Films',
+    category: ProviderCategory.VIDEOGRAPHY,
+    description: 'Documentary-style wedding videos that tell your unique story',
+    price: 2700,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/2608519/pexels-photo-2608519.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Bartending
+  {
+    id: 'bar-1',
+    name: 'Craft Cocktails',
+    category: ProviderCategory.BARTENDING,
+    description: 'Custom cocktail menu with professional bartenders',
+    price: 1500,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/1283219/pexels-photo-1283219.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'bar-2',
+    name: 'Mobile Bar',
+    category: ProviderCategory.BARTENDING,
+    description: 'Stylish mobile bar setup with signature drinks',
+    price: 1800,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/2531188/pexels-photo-2531188.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Furniture Rental
+  {
+    id: 'furniture-1',
+    name: 'Elegant Settings',
+    category: ProviderCategory.FURNITURE_RENTAL,
+    description: 'High-end furniture rentals for sophisticated events',
+    price: 2500,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/2121121/pexels-photo-2121121.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'furniture-2',
+    name: 'Modern Rentals',
+    category: ProviderCategory.FURNITURE_RENTAL,
+    description: 'Contemporary furniture and decor items for trendy events',
+    price: 2200,
+    rating: 4.5,
+    image: 'https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Invitations
+  {
+    id: 'invite-1',
+    name: 'Paper & Ink',
+    category: ProviderCategory.INVITATION,
+    description: 'Custom letterpress invitations with premium papers',
+    price: 800,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/211290/pexels-photo-211290.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'invite-2',
+    name: 'Digital Design',
+    category: ProviderCategory.INVITATION,
+    description: 'Modern digital invitations with online RSVP management',
+    price: 400,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/4126724/pexels-photo-4126724.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Officiants
+  {
+    id: 'officiant-1',
+    name: 'Personalized Ceremonies',
+    category: ProviderCategory.OFFICIANT,
+    description: 'Customized ceremony scripts for meaningful celebrations',
+    price: 600,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/752546/pexels-photo-752546.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'officiant-2',
+    name: 'Interfaith Minister',
+    category: ProviderCategory.OFFICIANT,
+    description: 'Ceremonies honoring multiple faith traditions and cultures',
+    price: 750,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/3589903/pexels-photo-3589903.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Hair & Makeup
+  {
+    id: 'beauty-1',
+    name: 'Glamour Squad',
+    category: ProviderCategory.HAIR_MAKEUP,
+    description: 'Full team for bridal party hair and makeup with trials',
+    price: 2000,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/2693415/pexels-photo-2693415.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'beauty-2',
+    name: 'Natural Beauty',
+    category: ProviderCategory.HAIR_MAKEUP,
+    description: 'Subtle, elegant looks using clean beauty products',
+    price: 1800,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/3065209/pexels-photo-3065209.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Security
+  {
+    id: 'security-1',
+    name: 'Elite Protection',
+    category: ProviderCategory.SECURITY,
+    description: 'Professional security staff for venue and guest safety',
+    price: 1200,
+    rating: 4.5,
+    image: 'https://images.pexels.com/photos/5794559/pexels-photo-5794559.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Sound System
+  {
+    id: 'sound-1',
+    name: 'Crystal Clear Audio',
+    category: ProviderCategory.SOUND_SYSTEM,
+    description: 'Premium sound equipment with professional technician',
+    price: 1500,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Jewelry
+  {
+    id: 'jewelry-1',
+    name: 'Precious Gems',
+    category: ProviderCategory.JEWELRY,
+    description: 'Custom wedding jewelry and accessory rentals',
+    price: 1000,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/2735970/pexels-photo-2735970.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Special Effects
+  {
+    id: 'effects-1',
+    name: 'Wow Factor',
+    category: ProviderCategory.SPECIAL_EFFECTS,
+    description: 'Fog, cold sparklers, and special lighting effects',
+    price: 1800,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/2263410/pexels-photo-2263410.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Childcare
+  {
+    id: 'childcare-1',
+    name: 'Event Nannies',
+    category: ProviderCategory.CHILDCARE,
+    description: 'Professional childcare with activities for kids at your event',
+    price: 800,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  
+  // Photo Booth
+  {
+    id: 'booth-1',
+    name: 'Snap Happy',
+    category: ProviderCategory.PHOTO_BOOTH,
+    description: 'Modern photo booth with instant prints and digital sharing',
+    price: 900,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/3380744/pexels-photo-3380744.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'booth-2',
+    name: 'Vintage Booth',
+    category: ProviderCategory.PHOTO_BOOTH,
+    description: 'Classic-style photo booth with custom backdrop options',
+    price: 1100,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/1443657/pexels-photo-1443657.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
 ]; 

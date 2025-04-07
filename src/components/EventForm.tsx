@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import React, { useState, FormEvent } from 'react';
 import { useEvent } from '../context/EventContext';
 import { Event } from '../types';
 

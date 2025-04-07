@@ -49,10 +49,11 @@ export default function CreateEvent() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredProviders.map(provider => (
-                <ProviderCard 
-                  key={provider.id} 
-                  provider={provider} 
-                />
+                <div key={provider.id}>
+                  <ProviderCard 
+                    provider={provider} 
+                  />
+                </div>
               ))}
               
               {filteredProviders.length === 0 && (
