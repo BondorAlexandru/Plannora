@@ -725,4 +725,170 @@ export const providers: Provider[] = [
     rating: 4.6,
     image: 'https://images.pexels.com/photos/1443657/pexels-photo-1443657.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
+
+  // Additional Photography vendors
+  {
+    id: 'photo-3',
+    name: 'Candid Captures',
+    category: ProviderCategory.PHOTOGRAPHY,
+    description: 'Photojournalistic approach capturing natural moments and emotions',
+    price: 2200,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/1449495/pexels-photo-1449495.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Decoration vendors
+  {
+    id: 'decor-3',
+    name: 'Botanical Bliss',
+    category: ProviderCategory.DECORATION,
+    description: 'Natural and organic decoration themes with living plants and flowers',
+    price: 1900,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/2306281/pexels-photo-2306281.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Transportation vendors
+  {
+    id: 'transport-3',
+    name: 'Vintage Wheels',
+    category: ProviderCategory.TRANSPORTATION,
+    description: 'Classic cars and vintage vehicles for a timeless arrival',
+    price: 800,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/1007410/pexels-photo-1007410.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Lighting vendors
+  {
+    id: 'light-3',
+    name: 'Glow Effects',
+    category: ProviderCategory.LIGHTING,
+    description: 'Dramatic lighting designs with color coordination and patterns',
+    price: 1200,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/2253916/pexels-photo-2253916.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Entertainment vendors
+  {
+    id: 'entertain-3',
+    name: 'Magic Moments',
+    category: ProviderCategory.ENTERTAINMENT,
+    description: 'Close-up magic and illusions to amaze and delight your guests',
+    price: 1100,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/2157562/pexels-photo-2157562.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Flowers vendors
+  {
+    id: 'flower-3',
+    name: 'Wild Blooms',
+    category: ProviderCategory.FLOWERS,
+    description: 'Untamed, natural floral arrangements with seasonal wildflowers',
+    price: 1300,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Security vendors
+  {
+    id: 'security-2',
+    name: 'Guardian Services',
+    category: ProviderCategory.SECURITY,
+    description: 'Discreet security personnel with hospitality training',
+    price: 900,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/3008338/pexels-photo-3008338.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'security-3',
+    name: 'Event Shield',
+    category: ProviderCategory.SECURITY,
+    description: 'Comprehensive security solutions with crowd management experts',
+    price: 1450,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/12198763/pexels-photo-12198763.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Sound System vendors
+  {
+    id: 'sound-2',
+    name: 'Bass Masters',
+    category: ProviderCategory.SOUND_SYSTEM,
+    description: 'High-powered sound systems ideal for large venues and dancing',
+    price: 1700,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'sound-3',
+    name: 'Acoustic Perfect',
+    category: ProviderCategory.SOUND_SYSTEM,
+    description: 'Premium sound engineering optimized for speech and live music',
+    price: 1350,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/164745/pexels-photo-164745.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Jewelry vendors
+  {
+    id: 'jewelry-2',
+    name: 'Bridal Sparkle',
+    category: ProviderCategory.JEWELRY,
+    description: 'Custom bridal jewelry and accessories for the whole wedding party',
+    price: 1200,
+    rating: 4.8,
+    image: 'https://images.pexels.com/photos/1395306/pexels-photo-1395306.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'jewelry-3',
+    name: 'Heritage Gems',
+    category: ProviderCategory.JEWELRY,
+    description: 'Antique and vintage jewelry rentals for a touch of history',
+    price: 850,
+    rating: 4.5,
+    image: 'https://images.pexels.com/photos/691046/pexels-photo-691046.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Special Effects vendors
+  {
+    id: 'effects-2',
+    name: 'Fog Masters',
+    category: ProviderCategory.SPECIAL_EFFECTS,
+    description: 'Atmospheric fog and haze effects with LED color enhancement',
+    price: 1500,
+    rating: 4.6,
+    image: 'https://images.pexels.com/photos/1387174/pexels-photo-1387174.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'effects-3',
+    name: 'Pyro Wonders',
+    category: ProviderCategory.SPECIAL_EFFECTS,
+    description: 'Indoor fireworks and sparkler effects for dramatic moments',
+    price: 2000,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+
+  // Additional Childcare vendors
+  {
+    id: 'childcare-2',
+    name: 'Kids Corner',
+    category: ProviderCategory.CHILDCARE,
+    description: 'Dedicated children\'s entertainment and supervision with themed activities',
+    price: 900,
+    rating: 4.9,
+    image: 'https://images.pexels.com/photos/1001914/pexels-photo-1001914.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
+  {
+    id: 'childcare-3',
+    name: 'Little VIPs',
+    category: ProviderCategory.CHILDCARE,
+    description: 'Premium childcare service with personalized care for each child',
+    price: 1200,
+    rating: 4.7,
+    image: 'https://images.pexels.com/photos/1912868/pexels-photo-1912868.jpeg?auto=compress&cs=tinysrgb&w=600',
+  },
 ]; 
