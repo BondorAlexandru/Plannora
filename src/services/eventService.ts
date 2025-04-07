@@ -19,6 +19,21 @@ export const getAllEvents = async (isAuthenticated: boolean): Promise<Event[]> =
   }
 };
 
+// Get events for step 1 selection
+export const getEventsForStep1 = async (isAuthenticated: boolean): Promise<Event[]> => {
+  if (!isAuthenticated) {
+    return [];
+  }
+  
+  try {
+    const response = await axios.get(`${API_URL}/events`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching events for step 1:', error);
+    return [];
+  }
+};
+
 // Get event by ID from server
 export const getEventById = async (eventId: string, isAuthenticated: boolean): Promise<Event | null> => {
   if (!isAuthenticated) {
@@ -34,7 +49,7 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
   }
 };
 
-// Create a new event on the server
+// Create a new event on the server (first-time creation only)
 export const createNewEvent = async (event: Event, isAuthenticated: boolean): Promise<Event | null> => {
   if (!isAuthenticated) {
     localStorage.setItem('event', JSON.stringify(event));
@@ -47,6 +62,7 @@ export const createNewEvent = async (event: Event, isAuthenticated: boolean): Pr
     delete newEvent._id;
     delete newEvent.id;
     
+    // Use the specific endpoint for creating new events
     const response = await axios.post(`${API_URL}/events/new`, newEvent);
     return response.data;
   } catch (error) {
@@ -55,14 +71,21 @@ export const createNewEvent = async (event: Event, isAuthenticated: boolean): Pr
   }
 };
 
-// Update existing event by ID
+// Update existing event by ID - only use for events with an ID
 export const updateEventById = async (eventId: string, event: Event, isAuthenticated: boolean): Promise<Event | null> => {
   if (!isAuthenticated) {
     return null;
   }
   
   try {
-    const response = await axios.put(`${API_URL}/events/${eventId}`, event);
+    // Create a copy of the event without ID fields to prevent MongoDB errors
+    const eventToUpdate = { ...event };
+    delete eventToUpdate._id;
+    delete eventToUpdate.id;
+    
+    // Always use PUT for updates
+    console.log(`Sending PUT request to update event ${eventId}`);
+    const response = await axios.put(`${API_URL}/events/${eventId}`, eventToUpdate);
     return response.data;
   } catch (error) {
     console.error(`Error updating event with ID ${eventId}:`, error);
@@ -90,36 +113,39 @@ export const deleteEventById = async (eventId: string, isAuthenticated: boolean)
 // Save event to server or localStorage based on authentication status
 export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestMode: boolean): Promise<Event> => {
   if (isAuthenticated && !isGuestMode) {
-    // Check if the event already has an ID, which means it exists
+    // Check if the event already has an ID
     if (event._id || event.id) {
-      const eventId = event._id || event.id;
+      const eventId = String(event._id || event.id);
       try {
-        // Always use PUT for updating an existing event
-        const response = await axios.put(`${API_URL}/events/${eventId}`, event);
-        return response.data;
+        // Use PUT for existing events
+        console.log(`Saving existing event with ID ${eventId} using PUT`);
+        const updatedEvent = await updateEventById(eventId, event, isAuthenticated);
+        if (updatedEvent) {
+          return updatedEvent;
+        }
+        // Fallback to localStorage if update fails
+        localStorage.setItem('event', JSON.stringify(event));
+        return event;
       } catch (error) {
         console.error(`Error updating event with ID ${eventId}:`, error);
-        // Fallback to localStorage if API call fails
         localStorage.setItem('event', JSON.stringify(event));
         return event;
       }
-    }
-    
-    // Create new event on server (only if no ID)
-    try {
-      // Remove any potential undefined ID fields before creating
-      const newEvent = { ...event };
-      delete newEvent._id;
-      delete newEvent.id;
-      
-      // Use the dedicated endpoint for creating new events
-      const response = await axios.post(`${API_URL}/events/new`, newEvent);
-      return response.data;
-    } catch (error) {
-      console.error('Error saving event to server:', error);
-      // Fallback to localStorage if API call fails
-      localStorage.setItem('event', JSON.stringify(event));
-      return event;
+    } else {
+      try {
+        // Use POST only for new events
+        console.log("Creating new event using POST");
+        const newEvent = await createNewEvent(event, isAuthenticated);
+        if (newEvent) {
+          return newEvent;
+        }
+        localStorage.setItem('event', JSON.stringify(event));
+        return event;
+      } catch (error) {
+        console.error('Error creating new event:', error);
+        localStorage.setItem('event', JSON.stringify(event));
+        return event;
+      }
     }
   } else {
     // Guest mode or not authenticated - save to localStorage only
@@ -218,6 +244,7 @@ export default {
   clearGuestData,
   // New multi-event functions
   getAllEvents,
+  getEventsForStep1,
   getEventById,
   createNewEvent,
   updateEventById,
