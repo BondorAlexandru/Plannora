@@ -32,6 +32,12 @@ export default function Create() {
     isPositive: boolean;
   } | null>(null);
   
+  const [quickAlternatives, setQuickAlternatives] = useState<{
+    category: ProviderCategory;
+    originalPrice: number;
+    alternatives: ReturnType<typeof getAlternatives>;
+  } | null>(null);
+  
   const navigate = useNavigate();
 
   // Load saved event data if it exists
@@ -143,12 +149,52 @@ export default function Create() {
     setStep(2);
   };
   
+  // Find alternative services that fit within budget for a specific category
+  const getAlternatives = (category: ProviderCategory, maxPrice: number) => {
+    return providers
+      .filter(p => 
+        p.category === category && 
+        p.price <= maxPrice && 
+        !event.selectedProviders.some(sp => sp.id === p.id)
+      )
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 3);
+  };
+  
+  // Show affordable alternatives if a selected item is too expensive
+  const showAffordableAlternatives = (provider: SelectedProvider) => {
+    // If the budget is not set or the provider price is within budget, don't show alternatives
+    if (event.budget <= 0 || provider.price <= budgetRemaining) {
+      setQuickAlternatives(null);
+      return;
+    }
+    
+    // Calculate a target price (70% of the original price)
+    const targetPrice = provider.originalPrice ? provider.originalPrice * 0.7 : provider.price * 0.7;
+    
+    // Get alternatives that fit the budget
+    const alternatives = getAlternatives(provider.category, targetPrice);
+    
+    if (alternatives.length > 0) {
+      setQuickAlternatives({
+        category: provider.category,
+        originalPrice: provider.originalPrice || provider.price,
+        alternatives
+      });
+    } else {
+      setQuickAlternatives(null);
+    }
+  };
+  
   const handleSelectProvider = (provider: SelectedProvider) => {
     const isAlreadySelected = event.selectedProviders.some(p => p.id === provider.id);
     
     // Calculate actual price based on whether this is a per-person service
     const isPerPerson = provider.category === ProviderCategory.CATERING;
     const actualPrice = isPerPerson ? provider.price * event.guestCount : provider.price;
+    
+    // Clear any existing alternatives
+    setQuickAlternatives(null);
     
     if (isAlreadySelected) {
       // Show budget impact for removal
@@ -180,6 +226,13 @@ export default function Create() {
             : `Adding ${provider.name} will use ${percentUsed.toFixed(1)}% of your budget.`,
           isPositive: remaining >= 0
         });
+        
+        // If over budget, suggest alternatives
+        if (remaining < 0) {
+          setTimeout(() => {
+            showAffordableAlternatives(provider);
+          }, 500);
+        }
       }
       
       // Store the provider with additional metadata
@@ -234,18 +287,6 @@ export default function Create() {
   const isOverBudget = event.budget > 0 && calculateTotal() > event.budget;
   const budgetRemaining = event.budget - calculateTotal();
   const percentUsed = event.budget > 0 ? (calculateTotal() / event.budget) * 100 : 0;
-  
-  // Find alternative services that fit within budget for a specific category
-  const getAlternatives = (category: ProviderCategory, maxPrice: number) => {
-    return providers
-      .filter(p => 
-        p.category === category && 
-        p.price <= maxPrice && 
-        !event.selectedProviders.some(sp => sp.id === p.id)
-      )
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, 3);
-  };
   
   const handleSetActiveCategory = (category: ProviderCategory) => {
     setActiveCategory(category);
@@ -353,6 +394,20 @@ export default function Create() {
                       Your selections exceed your budget by ${(calculateTotal() - event.budget).toLocaleString()}.
                       Consider removing some items or adjusting your budget.
                     </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => navigate('/preview')}
+                        className="text-sm bg-primary-100 hover:bg-primary-200 text-primary-700 py-1 px-3 rounded-md transition-colors"
+                      >
+                        View optimization suggestions
+                      </button>
+                      <button
+                        onClick={() => setStep(1)}
+                        className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded-md transition-colors"
+                      >
+                        Adjust budget
+                      </button>
+                    </div>
                   </div>
                 )}
                 
@@ -387,6 +442,66 @@ export default function Create() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Quick Alternatives Section */}
+          {quickAlternatives && (
+            <div className="bg-primary-50 rounded-xl shadow-fun p-4 mb-8 border-2 border-dashed border-primary-200 animate-pulse">
+              <div className="flex items-center mb-3">
+                <span className="text-primary-500 text-xl mr-2">💡</span>
+                <h3 className="text-lg font-heading font-semibold text-primary-700">Budget-Friendly Alternatives</h3>
+              </div>
+              <p className="text-gray-600 mb-4">
+                We found some highly-rated options that could help you stay within budget.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {quickAlternatives.alternatives.map(alternative => {
+                  const savings = quickAlternatives.originalPrice - alternative.price;
+                  const savingsPercent = Math.round((savings / quickAlternatives.originalPrice) * 100);
+                  
+                  return (
+                    <div key={alternative.id} className="bg-white rounded-lg p-3 border border-primary-100 hover:border-primary-300 transition-colors cursor-pointer"
+                      onClick={() => handleSelectProvider({
+                        id: alternative.id,
+                        name: alternative.name,
+                        price: alternative.price,
+                        category: alternative.category,
+                        image: alternative.image
+                      })}
+                    >
+                      <div className="flex items-center mb-2">
+                        <img 
+                          src={alternative.image} 
+                          alt={alternative.name}
+                          className="w-10 h-10 rounded-full object-cover mr-2"
+                        />
+                        <div>
+                          <h4 className="font-medium text-gray-800">{alternative.name}</h4>
+                          <div className="flex items-center">
+                            <span className="text-yellow-400 mr-1 text-xs">★</span>
+                            <span className="text-xs text-gray-600">{alternative.rating}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-primary-600 font-semibold">
+                          ${alternative.price.toLocaleString()}
+                        </p>
+                        <span className="bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
+                          Save {savingsPercent}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button 
+                onClick={() => setQuickAlternatives(null)}
+                className="text-primary-600 hover:text-primary-800 text-sm mt-3 inline-block"
+              >
+                Dismiss suggestions
+              </button>
             </div>
           )}
 
@@ -487,7 +602,7 @@ export default function Create() {
             </div>
           </div>
 
-          {/* Selected Services Summary Section */}
+          {/* Updated Selected Services Summary Section */}
           <div className="bg-primary-50 rounded-xl shadow-fun p-6 mb-8">
             <h2 className="text-xl font-heading font-bold mb-4 text-primary-700">Selected Services Summary</h2>
             
@@ -510,7 +625,26 @@ export default function Create() {
                         <div>
                           <h4 className="font-heading font-semibold text-gray-800">{provider.name}</h4>
                           <p className="text-sm text-gray-600 mt-1">{provider.category}</p>
-                          <p className="text-primary-600 font-bold mt-1">${provider.price.toLocaleString()}</p>
+                          <p className="text-primary-600 font-bold mt-1">
+                            ${provider.price.toLocaleString()}
+                            {provider.isPerPerson && provider.originalPrice && (
+                              <span className="text-xs text-gray-500 ml-1">
+                                (${provider.originalPrice} × {event.guestCount})
+                              </span>
+                            )}
+                          </p>
+                          {/* Show alternatives link if cheaper options exist */}
+                          {event.budget > 0 && provider.price > budgetRemaining / 5 && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showAffordableAlternatives(provider);
+                              }} 
+                              className="text-xs text-primary-600 hover:text-primary-800 underline mt-1"
+                            >
+                              See cheaper options
+                            </button>
+                          )}
                         </div>
                       </div>
                       <button 
@@ -525,24 +659,131 @@ export default function Create() {
                   ))}
                 </div>
                 
-                <div className="flex justify-between items-center p-4 bg-white rounded-lg">
-                  <div>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-white rounded-lg">
+                  <div className="mb-4 md:mb-0">
                     <p className="text-gray-700">Total Cost:</p>
                     <p className="text-2xl font-heading font-bold text-primary-600">
                       ${calculateTotal().toLocaleString()}
                     </p>
+                    {isOverBudget && (
+                      <p className="text-red-500 text-sm">
+                        ${(calculateTotal() - event.budget).toLocaleString()} over budget
+                      </p>
+                    )}
+                    {!isOverBudget && event.budget > 0 && (
+                      <p className="text-green-600 text-sm">
+                        ${budgetRemaining.toLocaleString()} remaining ({(100 - percentUsed).toFixed(1)}% of budget)
+                      </p>
+                    )}
                   </div>
                   
-                  <button 
-                    onClick={handleSubmit}
-                    className="bg-primary-500 hover:bg-primary-600 text-white font-bold py-3 px-6 rounded-lg shadow-sm transition"
-                  >
-                    Generate Quote
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                      onClick={() => setStep(1)}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg shadow-sm transition"
+                    >
+                      Edit Details
+                    </button>
+                    <button 
+                      onClick={handleSubmit}
+                      className="bg-primary-500 hover:bg-primary-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition"
+                    >
+                      Generate Quote
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
           </div>
+          
+          {/* Budget Insights Section */}
+          {event.budget > 0 && event.selectedProviders.length > 0 && (
+            <div className="bg-white rounded-xl shadow-fun p-6 mb-8">
+              <h2 className="text-xl font-heading font-bold mb-4 text-gray-800">Budget Insights</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {/* Venue allocation */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="font-medium text-gray-700">Venue</p>
+                  <div className="flex justify-between items-end">
+                    <p className="text-2xl font-bold text-primary-600">
+                      {Math.round(event.selectedProviders
+                        .filter(p => p.category === ProviderCategory.VENUE)
+                        .reduce((sum, p) => sum + p.price, 0) / calculateTotal() * 100)}%
+                    </p>
+                    <p className="text-xs text-gray-500">Recommended: 40-50%</p>
+                  </div>
+                </div>
+                
+                {/* Catering allocation */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="font-medium text-gray-700">Catering</p>
+                  <div className="flex justify-between items-end">
+                    <p className="text-2xl font-bold text-primary-600">
+                      {Math.round(event.selectedProviders
+                        .filter(p => p.category === ProviderCategory.CATERING)
+                        .reduce((sum, p) => sum + p.price, 0) / calculateTotal() * 100)}%
+                    </p>
+                    <p className="text-xs text-gray-500">Recommended: 25-30%</p>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    ~${Math.round(event.selectedProviders
+                      .filter(p => p.category === ProviderCategory.CATERING)
+                      .reduce((sum, p) => sum + p.price, 0) / event.guestCount)} per guest
+                  </p>
+                </div>
+                
+                {/* Entertainment allocation */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="font-medium text-gray-700">Entertainment</p>
+                  <div className="flex justify-between items-end">
+                    <p className="text-2xl font-bold text-primary-600">
+                      {Math.round(event.selectedProviders
+                        .filter(p => p.category === ProviderCategory.MUSIC)
+                        .reduce((sum, p) => sum + p.price, 0) / calculateTotal() * 100)}%
+                    </p>
+                    <p className="text-xs text-gray-500">Recommended: 10-15%</p>
+                  </div>
+                </div>
+                
+                {/* Other services allocation */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="font-medium text-gray-700">Other Services</p>
+                  <div className="flex justify-between items-end">
+                    <p className="text-2xl font-bold text-primary-600">
+                      {Math.round(event.selectedProviders
+                        .filter(p => 
+                          p.category !== ProviderCategory.VENUE && 
+                          p.category !== ProviderCategory.CATERING &&
+                          p.category !== ProviderCategory.MUSIC
+                        )
+                        .reduce((sum, p) => sum + p.price, 0) / calculateTotal() * 100)}%
+                    </p>
+                    <p className="text-xs text-gray-500">Recommended: 15-25%</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Tips and guidance */}
+              <div className="p-4 bg-primary-50 rounded-lg">
+                <h3 className="font-heading font-semibold text-primary-800 mb-2">Tips for your {event.eventType}</h3>
+                <ul className="space-y-2 text-sm text-gray-700">
+                  <li className="flex items-start">
+                    <span className="text-primary-500 mr-2">✨</span>
+                    <span>For a {event.guestCount}-person event, experts recommend budgeting $75-100 per guest for catering.</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-primary-500 mr-2">✨</span>
+                    <span>Consider allocating 5-10% of your budget for decorations and favors.</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-primary-500 mr-2">✨</span>
+                    <span>Set aside 10-15% of your total budget as a contingency fund for unexpected expenses.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
