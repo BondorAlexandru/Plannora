@@ -29,7 +29,7 @@ export const providers: Provider[] = [
     description: 'Elegant ballroom with capacity for up to 300 guests',
     price: 5000,
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/169190/pexels-photo-169190.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'venue-2',
@@ -38,7 +38,7 @@ export const providers: Provider[] = [
     description: 'Beautiful beachfront venue with stunning ocean views',
     price: 7500,
     rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1439539698758-ba2680ecadb9?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/1179156/pexels-photo-1179156.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'venue-3',
@@ -47,7 +47,7 @@ export const providers: Provider[] = [
     description: 'Modern industrial space in the heart of downtown',
     price: 3500,
     rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1517581177682-a085bb7ffb15?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/1170412/pexels-photo-1170412.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Catering
@@ -58,7 +58,7 @@ export const providers: Provider[] = [
     description: 'Fine dining experience with international cuisine options',
     price: 85,
     rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1555244162-803834f70033?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/1267320/pexels-photo-1267320.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'catering-2',
@@ -67,7 +67,7 @@ export const providers: Provider[] = [
     description: 'Homestyle favorites with a gourmet twist',
     price: 65,
     rating: 4.5,
-    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/958545/pexels-photo-958545.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'catering-3',
@@ -76,7 +76,7 @@ export const providers: Provider[] = [
     description: 'Fusion cuisine featuring dishes from around the world',
     price: 75,
     rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/5175537/pexels-photo-5175537.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Music
@@ -87,7 +87,7 @@ export const providers: Provider[] = [
     description: 'Elegant classical music performed by professional musicians',
     price: 1200,
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1465471759010-b9f5ea5ca2c4?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/111287/pexels-photo-111287.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'music-2',
@@ -96,7 +96,7 @@ export const providers: Provider[] = [
     description: 'High-energy band covering top hits from all decades',
     price: 2500,
     rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1501612780327-45045538702b?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/2444860/pexels-photo-2444860.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'music-3',
@@ -105,7 +105,7 @@ export const providers: Provider[] = [
     description: 'Professional DJ with state-of-the-art equipment',
     price: 1000,
     rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1571266752264-ac3598b8a6c7?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Photography
@@ -116,7 +116,7 @@ export const providers: Provider[] = [
     description: 'Award-winning photography team specializing in candid moments',
     price: 2200,
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1554048612-b6a482bc67e5?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/3379943/pexels-photo-3379943.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'photo-2',
@@ -125,7 +125,7 @@ export const providers: Provider[] = [
     description: 'Photography and videography package with drone footage',
     price: 3000,
     rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1557106577-5399664f6e24?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/212372/pexels-photo-212372.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Decoration
@@ -136,7 +136,7 @@ export const providers: Provider[] = [
     description: 'Sophisticated décor tailored to your event theme',
     price: 1800,
     rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1478146059778-26028b07395a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/1616113/pexels-photo-1616113.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'decor-2',
@@ -145,7 +145,7 @@ export const providers: Provider[] = [
     description: 'Creative and playful decorations for a memorable event',
     price: 1500,
     rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1464699788549-dd2f27efb73d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/6044227/pexels-photo-6044227.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Transportation
@@ -165,7 +165,7 @@ export const providers: Provider[] = [
     description: 'Classic cars for a timeless entrance and exit',
     price: 1200,
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1513311068348-19c8fbdc0bb6?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/4037050/pexels-photo-4037050.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Lighting
@@ -176,7 +176,7 @@ export const providers: Provider[] = [
     description: 'Customized lighting design to enhance your event atmosphere',
     price: 1200,
     rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1545972154-9bb223aac798?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/2121799/pexels-photo-2121799.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'light-2',
@@ -185,7 +185,7 @@ export const providers: Provider[] = [
     description: 'Synchronized lighting effects for an unforgettable experience',
     price: 1800,
     rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1519608425089-7f3bfa6f6bb8?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/1549326/pexels-photo-1549326.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Entertainment
@@ -196,7 +196,7 @@ export const providers: Provider[] = [
     description: 'Close-up magician to amaze and entertain your guests',
     price: 950,
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1620410523244-b9a8220bff88?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/9857215/pexels-photo-9857215.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'entertain-2',
@@ -205,7 +205,7 @@ export const providers: Provider[] = [
     description: 'Interactive games and activities for all ages',
     price: 1500,
     rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1534364432531-5696aa975d4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/2701570/pexels-photo-2701570.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Flowers
@@ -216,7 +216,7 @@ export const providers: Provider[] = [
     description: 'Custom floral arrangements designed for your specific event',
     price: 1400,
     rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1562690868-60bbe7293e94?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/2303781/pexels-photo-2303781.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   {
     id: 'flowers-2',
@@ -225,6 +225,6 @@ export const providers: Provider[] = [
     description: 'Seasonal flowers arranged with a modern aesthetic',
     price: 1100,
     rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1508610048659-a06b669e3321?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+    image: 'https://images.pexels.com/photos/6913636/pexels-photo-6913636.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
 ]; 

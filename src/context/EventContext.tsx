@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Provider, ProviderCategory } from '../data/mockData';
+import { Event, SelectedProvider } from '../types';
 
 export interface EventItem {
   provider: Provider;
@@ -24,6 +25,7 @@ interface EventContextType {
   calculateTotal: () => number;
   getItemsByCategory: (category: ProviderCategory) => EventItem[];
   reset: () => void;
+  syncWithLocalStorage: () => Event | null;
 }
 
 const defaultEventConfig: EventConfig = {
@@ -37,6 +39,35 @@ const EventContext = createContext<EventContextType | undefined>(undefined);
 
 export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [eventConfig, setEventConfig] = useState<EventConfig>(defaultEventConfig);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedEvent = localStorage.getItem('event');
+    if (savedEvent) {
+      try {
+        const parsedEvent: Event = JSON.parse(savedEvent);
+        setEventConfig({
+          name: parsedEvent.name || '',
+          date: parsedEvent.date || '',
+          guestCount: parsedEvent.guestCount || 0,
+          items: parsedEvent.selectedProviders.map(provider => ({
+            provider: {
+              id: provider.id,
+              name: provider.name,
+              price: provider.price,
+              category: provider.category,
+              description: '',
+              rating: 0,
+              image: provider.image
+            } as Provider,
+            quantity: 1
+          }))
+        });
+      } catch (e) {
+        console.error("Failed to parse saved event data", e);
+      }
+    }
+  }, []);
 
   const setEventName = (name: string) => {
     setEventConfig((prev) => ({ ...prev, name }));
@@ -106,6 +137,29 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const reset = () => {
     setEventConfig(defaultEventConfig);
+    localStorage.removeItem('event');
+  };
+
+  // Sync current context state to the localStorage event format
+  const syncWithLocalStorage = (): Event | null => {
+    const event: Event = {
+      name: eventConfig.name,
+      date: eventConfig.date,
+      location: '',
+      guestCount: eventConfig.guestCount,
+      budget: 0,
+      eventType: 'Party',
+      selectedProviders: eventConfig.items.map(item => ({
+        id: item.provider.id,
+        name: item.provider.name,
+        price: item.provider.price,
+        category: item.provider.category,
+        image: item.provider.image
+      }))
+    };
+    
+    localStorage.setItem('event', JSON.stringify(event));
+    return event;
   };
 
   return (
@@ -121,6 +175,7 @@ export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         calculateTotal,
         getItemsByCategory,
         reset,
+        syncWithLocalStorage
       }}
     >
       {children}
