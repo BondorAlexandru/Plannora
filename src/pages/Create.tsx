@@ -10,6 +10,7 @@ import EventStepSelector from "../components/EventStepSelector";
 import EventsList from "../components/EventsList";
 import ServicesSelection from "../components/ServicesSelection";
 import SelectedProvidersList from "../components/SelectedProvidersList";
+import EventComparison from "../components/EventComparison";
 
 export default function Create() {
   const [searchParams] = useSearchParams();
@@ -59,6 +60,12 @@ export default function Create() {
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
     null
   );
+
+  const [selectedEventsForComparison, setSelectedEventsForComparison] = useState<{event1: Event | null, event2: Event | null}>({
+    event1: null,
+    event2: null
+  });
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   const navigate = useNavigate();
 
@@ -849,6 +856,45 @@ export default function Create() {
     setStep(1);
   };
 
+  // Handle adding an event to comparison
+  const handleAddToComparison = (eventToAdd: Event) => {
+    setSelectedEventsForComparison(prev => {
+      // If event1 is empty, add to event1
+      if (!prev.event1) {
+        return { ...prev, event1: eventToAdd };
+      }
+      // If event2 is empty, add to event2
+      else if (!prev.event2) {
+        return { ...prev, event2: eventToAdd };
+      }
+      // If both slots are filled, replace event2 and shift event2 to event1
+      else {
+        return { event1: prev.event2, event2: eventToAdd };
+      }
+    });
+  };
+
+  // Open comparison modal if we have at least one event selected
+  const handleOpenComparison = () => {
+    if (selectedEventsForComparison.event1 || selectedEventsForComparison.event2) {
+      setShowComparisonModal(true);
+    }
+  };
+
+  // Clear comparison selections
+  const handleClearComparison = () => {
+    setSelectedEventsForComparison({ event1: null, event2: null });
+  };
+
+  // Select event from comparison and load it for editing
+  const handleSelectEventFromComparison = (selectedEvent: Event) => {
+    if (selectedEvent._id) {
+      // Navigate to edit the selected event
+      navigate(`/create?eventId=${selectedEvent._id}`);
+      setShowComparisonModal(false);
+    }
+  };
+
   if (isLoadingEvent) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
@@ -924,15 +970,38 @@ export default function Create() {
           
           {isAuthenticated && (
             <div className="mt-8 pt-8 border-t border-gray-200">
-              <h3 className="text-lg font-heading font-semibold mb-3 text-gray-700">
-                Your Previous Events
-              </h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-heading font-semibold text-gray-700">
+                  Your Previous Events
+                </h3>
+                
+                <div className="flex space-x-2">
+                  {(selectedEventsForComparison.event1 || selectedEventsForComparison.event2) && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleOpenComparison}
+                        className="bg-primary-500 hover:bg-primary-600 text-white px-3 py-1 rounded-lg text-sm transition-colors shadow-sm"
+                      >
+                        Compare Events ({selectedEventsForComparison.event1 ? "1" : "0"}/{selectedEventsForComparison.event2 ? "1" : "0"})
+                      </button>
+                      <button
+                        onClick={handleClearComparison}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-lg text-sm transition-colors shadow-sm"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
               
               <EventsList 
                 events={userEvents}
                 isLoading={isLoadingEvents}
                 onSelectEvent={handleSelectEvent}
                 onDeleteEvent={handleDeleteEvent}
+                onAddToComparison={handleAddToComparison}
+                selectedForComparison={selectedEventsForComparison}
               />
             </div>
           )}
@@ -969,6 +1038,16 @@ export default function Create() {
             event.selectedProviders.find((p) => p.id === selectedProvider.id)
               ?.offerId
           }
+        />
+      )}
+
+      {/* Event Comparison Modal */}
+      {showComparisonModal && (
+        <EventComparison
+          event1={selectedEventsForComparison.event1}
+          event2={selectedEventsForComparison.event2}
+          onClose={() => setShowComparisonModal(false)}
+          onSelectEvent={handleSelectEventFromComparison}
         />
       )}
     </div>
