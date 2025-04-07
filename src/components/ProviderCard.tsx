@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Provider } from '../data/mockData';
 import { useEvent } from '../context/EventContext';
 

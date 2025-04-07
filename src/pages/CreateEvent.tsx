@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import EventForm from '../components/EventForm';
 import CategoryFilter from '../components/CategoryFilter';

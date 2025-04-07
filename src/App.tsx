@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { EventProvider } from './context/EventContext';
 import Layout from './components/Layout';

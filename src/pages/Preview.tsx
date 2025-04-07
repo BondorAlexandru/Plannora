@@ -1,10 +1,9 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import { useEvent } from '../context/EventContext';
 import { ProviderCategory } from '../data/mockData';
-import { Link } from 'react-router-dom';
 
 export default function Preview() {
-  const { eventConfig, calculateTotal } = useEvent();
+  const { eventConfig } = useEvent();
   const { name, date, guestCount, items } = eventConfig;
 
   const categories = Object.values(ProviderCategory);

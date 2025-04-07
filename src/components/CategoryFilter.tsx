@@ -1,4 +1,3 @@
-import React from 'react';
 import { ProviderCategory } from '../data/mockData';
 
 interface CategoryFilterProps {

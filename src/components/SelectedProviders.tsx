@@ -1,4 +1,3 @@
-import React from 'react';
 import { useEvent } from '../context/EventContext';
 import { ProviderCategory } from '../data/mockData';
 
