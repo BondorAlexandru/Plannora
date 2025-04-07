@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://plannora.vercel.app', 'https://www.plannora.com'] 
+    ? process.env.CORS_ORIGIN || ['https://plannora.vercel.app', 'https://www.plannora.com'] 
     : 'http://localhost:3203',
   credentials: true
 }));

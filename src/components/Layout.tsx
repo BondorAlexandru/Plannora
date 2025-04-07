@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,6 +8,11 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { isAuthenticated, user, isLoading, guestMode } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-50 via-white to-secondary-50">
@@ -20,7 +25,29 @@ export default function Layout({ children }: LayoutProps) {
                 <span className="text-festive-yellow-300 ml-1">✨</span>
               </Link>
             </div>
-            <nav>
+            
+            {/* Mobile menu button */}
+            <button 
+              className="md:hidden flex items-center text-white focus:outline-none" 
+              onClick={toggleMobileMenu}
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-6 w-6" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                {isMobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+            
+            {/* Desktop navigation */}
+            <nav className="hidden md:block">
               <ul className="flex items-center space-x-6 font-heading">
                 <li>
                   <Link to="/" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Home</Link>
@@ -34,19 +61,13 @@ export default function Layout({ children }: LayoutProps) {
                 
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
-                ) : isAuthenticated ? (
+                ) : isAuthenticated || guestMode ? (
                   <li>
                     <Link to="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
                       <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
                         {user?.name?.charAt(0) || 'U'}
                       </div>
-                      <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
-                    </Link>
-                  </li>
-                ) : guestMode ? (
-                  <li>
-                    <Link to="/login" className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg transition-colors duration-200">
-                      Guest Mode
+                      <span className="text-white">{user?.name?.split(' ')[0] || 'Guest'}</span>
                     </Link>
                   </li>
                 ) : (
@@ -66,6 +87,79 @@ export default function Layout({ children }: LayoutProps) {
               </ul>
             </nav>
           </div>
+          
+          {/* Mobile menu */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden mt-3 pt-3 border-t border-white/20">
+              <ul className="space-y-3 pb-3 font-heading">
+                <li>
+                  <Link 
+                    to="/" 
+                    className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/create" 
+                    className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Create Event
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    to="/preview" 
+                    className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Get Quote
+                  </Link>
+                </li>
+                
+                {isLoading ? (
+                  <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
+                ) : isAuthenticated || guestMode ? (
+                  <li>
+                    <Link 
+                      to="/profile" 
+                      className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200 w-fit"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
+                        {user?.name?.charAt(0) || 'U'}
+                      </div>
+                      <span className="text-white">{user?.name?.split(' ')[0] || 'Guest'}</span>
+                    </Link>
+                  </li>
+                ) : (
+                  <>
+                    <li>
+                      <Link 
+                        to="/login" 
+                        className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Log In
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/register" 
+                        className="bg-festive-yellow-400 hover:bg-festive-yellow-500 text-white px-3 py-1 rounded-lg transition-colors duration-200 inline-block"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Sign Up
+                      </Link>
+                    </li>
+                  </>
+                )}
+              </ul>
+            </div>
+          )}
         </div>
       </header>
       
