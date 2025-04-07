@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import EventForm from '../components/EventForm';
 import { Event, SelectedProvider } from '../types';
-import { providers, ProviderCategory } from '../data/mockData';
+import { providers, ProviderCategory, Provider, Offer } from '../data/mockData';
+import ProviderDetail from '../components/ProviderDetail';
 
 export default function Create() {
   const [searchParams] = useSearchParams();
@@ -37,6 +38,8 @@ export default function Create() {
     originalPrice: number;
     alternatives: ReturnType<typeof getAlternatives>;
   } | null>(null);
+  
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   
   const navigate = useNavigate();
 
@@ -186,7 +189,144 @@ export default function Create() {
     }
   };
   
+  const handleViewProviderDetail = (provider: Provider) => {
+    setSelectedProvider(provider);
+  };
+  
+  const handleCloseProviderDetail = () => {
+    setSelectedProvider(null);
+  };
+  
+  const handleSelectOffer = (provider: Provider, offer: Offer) => {
+    // Check if this provider is already selected
+    const isAlreadySelected = event.selectedProviders.some(p => p.id === provider.id);
+    
+    // Calculate actual price based on whether this is a per-person service
+    const isPerPerson = provider.category === ProviderCategory.CATERING;
+    const actualPrice = isPerPerson ? offer.price * event.guestCount : offer.price;
+    
+    // Clear any existing alternatives
+    setQuickAlternatives(null);
+    
+    if (isAlreadySelected) {
+      // If the same offer is selected, remove it
+      const existingProvider = event.selectedProviders.find(p => p.id === provider.id);
+      if (existingProvider?.offerId === offer.id) {
+        // Show budget impact for removal
+        setBudgetImpact({
+          provider: {
+            id: provider.id,
+            name: provider.name,
+            price: provider.price,
+            category: provider.category,
+            image: provider.image
+          },
+          impact: `Removing ${provider.name} - ${offer.name} will free up $${existingProvider.price.toLocaleString()} from your budget.`,
+          isPositive: true
+        });
+        
+        setEvent(prev => ({
+          ...prev,
+          selectedProviders: prev.selectedProviders.filter(p => p.id !== provider.id)
+        }));
+        return;
+      }
+      
+      // If a different offer is selected, update the selection
+      setBudgetImpact({
+        provider: {
+          id: provider.id,
+          name: provider.name,
+          price: provider.price,
+          category: provider.category,
+          image: provider.image
+        },
+        impact: `Changed ${provider.name} package to ${offer.name}.`,
+        isPositive: true
+      });
+      
+      setEvent(prev => ({
+        ...prev,
+        selectedProviders: prev.selectedProviders.map(p => {
+          if (p.id === provider.id) {
+            return {
+              ...p,
+              price: actualPrice,
+              originalPrice: offer.price,
+              offerId: offer.id,
+              offerName: offer.name
+            };
+          }
+          return p;
+        })
+      }));
+    } else {
+      // Add new provider with selected offer
+      // Check budget impact before adding
+      const newTotal = calculateTotal() + actualPrice;
+      const remaining = event.budget - newTotal;
+      const percentUsed = (newTotal / event.budget) * 100;
+      
+      // Show budget impact for addition
+      if (event.budget > 0) {
+        setBudgetImpact({
+          provider: {
+            id: provider.id,
+            name: provider.name,
+            price: provider.price,
+            category: provider.category,
+            image: provider.image
+          },
+          impact: remaining < 0 
+            ? `Adding ${provider.name} - ${offer.name} will put you $${Math.abs(remaining).toLocaleString()} over budget.` 
+            : `Adding ${provider.name} - ${offer.name} will use ${percentUsed.toFixed(1)}% of your budget.`,
+          isPositive: remaining >= 0
+        });
+        
+        // If over budget, suggest alternatives
+        if (remaining < 0) {
+          setTimeout(() => {
+            showAffordableAlternatives(provider);
+          }, 500);
+        }
+      }
+      
+      // Store the provider with offer information
+      const providerWithOffer = {
+        id: provider.id,
+        name: provider.name,
+        price: actualPrice,
+        originalPrice: offer.price,
+        category: provider.category,
+        image: provider.image,
+        isPerPerson,
+        offerId: offer.id,
+        offerName: offer.name
+      };
+      
+      setEvent(prev => ({
+        ...prev,
+        selectedProviders: [...prev.selectedProviders, providerWithOffer]
+      }));
+    }
+    
+    // Clear budget impact after 5 seconds
+    setTimeout(() => {
+      setBudgetImpact(null);
+    }, 5000);
+  };
+  
+  // Original handleSelectProvider modified to show provider detail if offers are available
   const handleSelectProvider = (provider: SelectedProvider) => {
+    const fullProvider = providers.find(p => p.id === provider.id);
+    
+    // If the provider has offers, show the detail view
+    if (fullProvider && fullProvider.offers && fullProvider.offers.length > 0) {
+      setSelectedProvider(fullProvider);
+      return;
+    }
+    
+    // Otherwise use the original selection logic
     const isAlreadySelected = event.selectedProviders.some(p => p.id === provider.id);
     
     // Calculate actual price based on whether this is a per-person service
@@ -538,11 +678,24 @@ export default function Create() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {categoryProviders.map(provider => {
                         const isSelected = event.selectedProviders.some(p => p.id === provider.id);
+                        const selectedProviderWithOffer = event.selectedProviders.find(p => p.id === provider.id);
                         const isOverBudgetItem = event.budget > 0 && provider.price > budgetRemaining && !isSelected;
                         const isPerPerson = provider.category === ProviderCategory.CATERING;
-                        const displayPrice = isPerPerson 
-                          ? `$${provider.price.toLocaleString()} per person (Total: $${(provider.price * event.guestCount).toLocaleString()})`
-                          : `$${provider.price.toLocaleString()}`;
+                        
+                        let displayPrice = '';
+                        if (isSelected && selectedProviderWithOffer?.offerName) {
+                          displayPrice = `${selectedProviderWithOffer.offerName}: $${selectedProviderWithOffer.price.toLocaleString()}`;
+                          if (isPerPerson) {
+                            displayPrice = `${selectedProviderWithOffer.offerName}: $${selectedProviderWithOffer.originalPrice?.toLocaleString()} per person (Total: $${selectedProviderWithOffer.price.toLocaleString()})`;
+                          }
+                        } else {
+                          displayPrice = isPerPerson 
+                            ? `$${provider.price.toLocaleString()} per person (Total: $${(provider.price * event.guestCount).toLocaleString()})`
+                            : `$${provider.price.toLocaleString()}`;
+                        }
+                        
+                        // Check if provider has multiple offers
+                        const hasOffers = provider.offers && provider.offers.length > 0;
                         
                         return (
                           <div 
@@ -581,16 +734,31 @@ export default function Create() {
                               <span className={`font-heading font-bold ${isOverBudgetItem ? 'text-red-600' : 'text-primary-600'}`}>
                                 {displayPrice}
                               </span>
-                              {isSelected && (
-                                <span className="bg-primary-100 text-primary-600 text-xs px-2 py-1 rounded-full">
-                                  Selected
-                                </span>
-                              )}
-                              {isOverBudgetItem && !isSelected && (
-                                <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
-                                  Over budget
-                                </span>
-                              )}
+                              <div className="flex items-center">
+                                {isSelected && (
+                                  <span className="bg-primary-100 text-primary-600 text-xs px-2 py-1 rounded-full mr-2">
+                                    Selected
+                                  </span>
+                                )}
+                                {isOverBudgetItem && !isSelected && (
+                                  <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full mr-2">
+                                    Over budget
+                                  </span>
+                                )}
+                                {hasOffers && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleViewProviderDetail(provider);
+                                    }}
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs p-1 rounded-full"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -614,49 +782,70 @@ export default function Create() {
             ) : (
               <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {event.selectedProviders.map((provider) => (
-                    <div key={provider.id} className="bg-white p-4 rounded-lg flex justify-between items-start">
-                      <div className="flex items-center">
-                        <img 
-                          src={provider.image} 
-                          alt={provider.name}
-                          className="w-10 h-10 rounded-full object-cover mr-3"
-                        />
-                        <div>
-                          <h4 className="font-heading font-semibold text-gray-800">{provider.name}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{provider.category}</p>
-                          <p className="text-primary-600 font-bold mt-1">
-                            ${provider.price.toLocaleString()}
-                            {provider.isPerPerson && provider.originalPrice && (
-                              <span className="text-xs text-gray-500 ml-1">
-                                (${provider.originalPrice} × {event.guestCount})
-                              </span>
+                  {event.selectedProviders.map((provider) => {
+                    const fullProvider = providers.find(p => p.id === provider.id);
+                    const hasOffers = fullProvider?.offers && fullProvider.offers.length > 0;
+                    
+                    return (
+                      <div key={provider.id} className="bg-white p-4 rounded-lg flex justify-between items-start">
+                        <div className="flex items-center">
+                          <img 
+                            src={provider.image} 
+                            alt={provider.name}
+                            className="w-10 h-10 rounded-full object-cover mr-3"
+                          />
+                          <div>
+                            <h4 className="font-heading font-semibold text-gray-800">{provider.name}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{provider.category}</p>
+                            {provider.offerName && (
+                              <p className="text-xs text-gray-500 mt-0.5">Package: {provider.offerName}</p>
                             )}
-                          </p>
-                          {/* Show alternatives link if cheaper options exist */}
-                          {event.budget > 0 && provider.price > budgetRemaining / 5 && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                showAffordableAlternatives(provider);
-                              }} 
-                              className="text-xs text-primary-600 hover:text-primary-800 underline mt-1"
-                            >
-                              See cheaper options
-                            </button>
-                          )}
+                            <p className="text-primary-600 font-bold mt-1">
+                              ${provider.price.toLocaleString()}
+                              {provider.isPerPerson && provider.originalPrice && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                  (${provider.originalPrice} × {event.guestCount})
+                                </span>
+                              )}
+                            </p>
+                            {/* Show options */}
+                            <div className="mt-1 flex space-x-2">
+                              {/* Show alternatives link if cheaper options exist */}
+                              {event.budget > 0 && provider.price > budgetRemaining / 5 && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showAffordableAlternatives(provider);
+                                  }} 
+                                  className="text-xs text-primary-600 hover:text-primary-800 underline"
+                                >
+                                  See cheaper options
+                                </button>
+                              )}
+                              
+                              {/* View/change details button for providers with offers */}
+                              {hasOffers && (
+                                <button 
+                                  onClick={() => handleViewProviderDetail(fullProvider!)}
+                                  className="text-xs text-gray-600 hover:text-gray-800 underline ml-2"
+                                >
+                                  View/change package
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
+                        <button 
+                          onClick={() => handleSelectProvider(provider)}
+                          className="bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-full transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleSelectProvider(provider)}
-                        className="bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-full transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-white rounded-lg">
@@ -785,6 +974,18 @@ export default function Create() {
             </div>
           )}
         </div>
+      )}
+      
+      {/* Provider Detail Modal */}
+      {selectedProvider && (
+        <ProviderDetail 
+          provider={selectedProvider}
+          onClose={handleCloseProviderDetail}
+          onSelectOffer={handleSelectOffer}
+          guestCount={event.guestCount}
+          isPerPerson={selectedProvider.category === ProviderCategory.CATERING}
+          selectedOfferId={event.selectedProviders.find(p => p.id === selectedProvider.id)?.offerId}
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { ProviderCategory } from './data/mockData';
+import { ProviderCategory, Offer } from './data/mockData';
 
 export interface Event {
   id?: string;
@@ -19,4 +19,6 @@ export interface SelectedProvider {
   image: string;
   isPerPerson?: boolean;
   originalPrice?: number;
+  offerId?: string;
+  offerName?: string;
 } 
