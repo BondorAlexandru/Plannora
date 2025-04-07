@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import Event from '../models/Event';
+import Event from '../models/Event.js';
 
 // Get user's event
 export const getUserEvent = async (req: Request, res: Response) => {

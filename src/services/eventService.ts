@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Event } from '../types';
 
 // Define the base URL for API calls
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Save event to server or localStorage based on authentication status
 export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestMode: boolean): Promise<Event> => {

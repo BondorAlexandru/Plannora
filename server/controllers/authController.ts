@@ -1,16 +1,27 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import User, { IUser } from '../models/User';
-import { generateToken } from '../middleware/auth';
+import User, { IUser } from '../models/User.js';
+import { generateToken } from '../middleware/auth.js';
 
 // Register a new user
 export const register = async (req: Request, res: Response) => {
   try {
+    console.log('Register request received:', req.body);
+    console.log('Request headers:', req.headers);
+    console.log('Request cookies:', req.cookies);
+    
     const { name, email, password } = req.body;
+    
+    // Validate input
+    if (!name || !email || !password) {
+      console.log('Missing required fields:', { name: !!name, email: !!email, password: !!password });
+      return res.status(400).json({ message: 'Please provide name, email, and password' });
+    }
     
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
+      console.log('User already exists:', email);
       return res.status(400).json({ message: 'User already exists' });
     }
     
@@ -21,18 +32,27 @@ export const register = async (req: Request, res: Response) => {
       password,
     }) as IUser & { _id: mongoose.Types.ObjectId };
     
+    console.log('User created successfully:', { id: user._id, name: user.name, email: user.email });
+    
     // Generate JWT token
     const token = generateToken(user._id.toString());
+    
+    // Clear any existing cookies first
+    res.clearCookie('token');
     
     // Set cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/'
     });
     
+    console.log('Cookie set successfully');
+    
     // Return user data (excluding password)
-    res.status(201).json({
+    return res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
@@ -40,7 +60,7 @@ export const register = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    return res.status(500).json({ message: 'Server error during registration', error: String(error) });
   }
 };
 
@@ -90,7 +110,9 @@ export const logout = async (req: Request, res: Response) => {
     // Clear cookie
     res.cookie('token', '', {
       httpOnly: true,
-      expires: new Date(0)
+      secure: process.env.NODE_ENV === 'production',
+      expires: new Date(0),
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     });
     
     res.status(200).json({ message: 'Logged out successfully' });

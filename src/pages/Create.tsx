@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EventForm from "../components/EventForm";
 import { Event, SelectedProvider } from "../types";
@@ -52,7 +52,6 @@ export default function Create() {
   );
 
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isAuthenticated, guestMode } = useAuth();
 
@@ -61,18 +60,21 @@ export default function Create() {
     const loadData = async () => {
       try {
         // Get event data from server or localStorage based on authentication
-        const savedEvent = await eventService.getEvent(isAuthenticated, guestMode);
-        
+        const savedEvent = await eventService.getEvent(
+          isAuthenticated,
+          guestMode
+        );
+
         if (savedEvent) {
           setEvent(savedEvent);
         }
-        
+
         // Get step data
         const savedStep = localStorage.getItem("eventStep");
         if (savedStep) {
           setStep(parseInt(savedStep));
         }
-        
+
         // Get active category data
         const savedCategory = localStorage.getItem("activeCategory");
         if (savedCategory) {
@@ -82,7 +84,7 @@ export default function Create() {
         console.error("Error loading event data:", error);
       }
     };
-    
+
     loadData();
   }, [isAuthenticated, guestMode]);
 
@@ -101,7 +103,11 @@ export default function Create() {
   // Save active category whenever it changes
   useEffect(() => {
     if (activeCategory) {
-      eventService.saveActiveCategory(activeCategory, isAuthenticated, guestMode);
+      eventService.saveActiveCategory(
+        activeCategory,
+        isAuthenticated,
+        guestMode
+      );
     }
   }, [activeCategory, isAuthenticated, guestMode]);
 
@@ -581,21 +587,6 @@ export default function Create() {
     alert("All data has been cleared. You can start fresh!");
   };
 
-  const handleExportData = () => {
-    // Implement export functionality
-    console.log("Exporting data");
-  };
-
-  const handleImportClick = () => {
-    // Implement import click functionality
-    console.log("Import clicked");
-  };
-
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Implement import data functionality
-    console.log("Import data", e.target.files);
-  };
-
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="text-center mb-10">
@@ -614,28 +605,6 @@ export default function Create() {
         >
           Clear & Start Over
         </button>
-
-        <div className="flex justify-center gap-2 mt-2">
-          <button
-            onClick={handleExportData}
-            className="bg-primary-100 hover:bg-primary-200 text-primary-700 font-medium py-1 px-4 rounded-full text-sm transition-colors"
-          >
-            Export Data
-          </button>
-          <button
-            onClick={handleImportClick}
-            className="bg-secondary-100 hover:bg-secondary-200 text-secondary-700 font-medium py-1 px-4 rounded-full text-sm transition-colors"
-          >
-            Import Data
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportData}
-            accept=".json"
-            className="hidden"
-          />
-        </div>
       </div>
 
       {/* Step Indicator */}

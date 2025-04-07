@@ -9,11 +9,18 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserProfile from './pages/UserProfile';
+import axios from 'axios';
+
+// Configure axios defaults
+axios.defaults.withCredentials = true;
 
 const App = () => {
   return (
     <AuthProvider>
-      <Router>
+      <Router future={{ 
+        v7_startTransition: true,
+        v7_relativeSplatPath: true 
+      }}>
         <EventProvider>
           <Layout>
             <Routes>

@@ -2,9 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-import connectDB from './config/database';
-import authRoutes from './routes/authRoutes';
-import eventRoutes from './routes/eventRoutes';
+import connectDB from './config/database.js';
+import authRoutes from './routes/authRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,15 +18,30 @@ const app = express();
 // Define port
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(express.json());
-app.use(cookieParser());
+// Setup CORS first (before other middleware)
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.CORS_ORIGIN || ['https://plannora.vercel.app', 'https://www.plannora.com'] 
-    : 'http://localhost:3203',
-  credentials: true
+    : 'http://localhost:3206',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie']
 }));
+
+// Other middleware
+app.use(express.json());
+app.use(cookieParser());
+
+// Debug middleware - log all requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Headers:', req.headers);
+  if (req.method === 'POST' || req.method === 'PUT') {
+    console.log('Body:', req.body);
+  }
+  next();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

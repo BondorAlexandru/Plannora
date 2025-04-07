@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
 // Define the base URL for API calls
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = '/api';
 
 // Define User type
 interface User {
@@ -55,15 +55,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Check for token in localStorage (backup)
         const token = localStorage.getItem('token');
-        if (token) {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        if (!token) {
+          // If no token, don't make the API call
+          setIsLoading(false);
+          return;
         }
-
+        
+        // Set token in headers
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        // Try to get user profile
         const res = await axios.get(`${API_URL}/auth/profile`);
         
         setUser(res.data);
         setIsAuthenticated(true);
       } catch (err) {
+        console.error('Profile loading error:', err);
         localStorage.removeItem('token');
         delete axios.defaults.headers.common['Authorization'];
       } finally {
@@ -85,7 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      const res = await axios.post(`${API_URL}/auth/register`, {
+      // Try the direct registration endpoint
+      const res = await axios.post(`${API_URL}/auth/register-direct`, {
         name,
         email,
         password
@@ -102,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setGuestMode(false);
     } catch (err: any) {
+      console.error('Registration error:', err);
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
       throw err;
     } finally {
@@ -143,7 +152,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      await axios.post(`${API_URL}/auth/logout`);
+      // Only call the logout API if authenticated (not in guest mode)
+      if (isAuthenticated) {
+        await axios.post(`${API_URL}/auth/logout`);
+      }
       
       setUser(null);
       setIsAuthenticated(false);
@@ -152,12 +164,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('token');
       delete axios.defaults.headers.common['Authorization'];
       
-      // Clear event data if not in guest mode
-      if (!guestMode) {
-        localStorage.removeItem('event');
-        localStorage.removeItem('eventStep');
-        localStorage.removeItem('activeCategory');
-      }
+      // Always clear guest mode
+      setGuestMode(false);
+      localStorage.removeItem('guestMode');
+      
+      // Clear event data
+      localStorage.removeItem('event');
+      localStorage.removeItem('eventStep');
+      localStorage.removeItem('activeCategory');
+      
     } catch (err: any) {
       setError(err.response?.data?.message || 'Logout failed. Please try again.');
     } finally {

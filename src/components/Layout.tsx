@@ -1,10 +1,42 @@
 import { ReactNode, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
 }
+
+// LogoutButton component
+const LogoutButton = ({ onClick }: { onClick?: () => void }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      if (onClick) onClick(); // Close mobile menu if provided
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+  
+  return (
+    <button
+      onClick={handleLogout}
+      disabled={isLoggingOut}
+      className={`text-white hover:text-festive-yellow-200 transition-colors duration-200 ${
+        isLoggingOut ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+    >
+      {isLoggingOut ? 'Logging out...' : 'Log Out'}
+    </button>
+  );
+};
 
 export default function Layout({ children }: LayoutProps) {
   const { isAuthenticated, user, isLoading, guestMode } = useAuth();
@@ -61,15 +93,29 @@ export default function Layout({ children }: LayoutProps) {
                 
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
-                ) : isAuthenticated || guestMode ? (
+                ) : isAuthenticated ? (
                   <li>
                     <Link to="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
                       <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
                         {user?.name?.charAt(0) || 'U'}
                       </div>
-                      <span className="text-white">{user?.name?.split(' ')[0] || 'Guest'}</span>
+                      <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
                     </Link>
                   </li>
+                ) : guestMode ? (
+                  <>
+                    <li>
+                      <span className="flex items-center bg-white/20 rounded-full px-3 py-1">
+                        <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
+                          G
+                        </div>
+                        <span className="text-white">Guest</span>
+                      </span>
+                    </li>
+                    <li>
+                      <LogoutButton />
+                    </li>
+                  </>
                 ) : (
                   <>
                     <li>
@@ -122,7 +168,7 @@ export default function Layout({ children }: LayoutProps) {
                 
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
-                ) : isAuthenticated || guestMode ? (
+                ) : isAuthenticated ? (
                   <li>
                     <Link 
                       to="/profile" 
@@ -132,9 +178,23 @@ export default function Layout({ children }: LayoutProps) {
                       <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
                         {user?.name?.charAt(0) || 'U'}
                       </div>
-                      <span className="text-white">{user?.name?.split(' ')[0] || 'Guest'}</span>
+                      <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
                     </Link>
                   </li>
+                ) : guestMode ? (
+                  <>
+                    <li>
+                      <span className="flex items-center bg-white/20 rounded-full px-3 py-1 w-fit">
+                        <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
+                          G
+                        </div>
+                        <span className="text-white">Guest</span>
+                      </span>
+                    </li>
+                    <li>
+                      <LogoutButton onClick={() => setIsMobileMenuOpen(false)} />
+                    </li>
+                  </>
                 ) : (
                   <>
                     <li>

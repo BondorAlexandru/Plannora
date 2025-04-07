@@ -5,8 +5,8 @@ import {
   deleteEvent, 
   updateEventStep, 
   updateActiveCategory 
-} from '../controllers/eventController';
-import { authenticate } from '../middleware/auth';
+} from '../controllers/eventController.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
