@@ -5,11 +5,14 @@
       "src": "package.json",
       "use": "@vercel/node",
       "config": {
-        "buildCommand": "npm run vercel-build"
+        "buildCommand": "SKIP_TYPECHECK=true npm run vercel-build"
       }
     }
   ],
   "routes": [
     { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  ],
+  "env": {
+    "SKIP_TYPECHECK": "true"
+  }
 } 

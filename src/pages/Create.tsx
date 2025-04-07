@@ -9,7 +9,6 @@ import eventService from "../services/eventService";
 import EventStepSelector from "../components/EventStepSelector";
 import EventsList from "../components/EventsList";
 import ServicesSelection from "../components/ServicesSelection";
-import SelectedProvidersList from "../components/SelectedProvidersList";
 import EventComparison from "../components/EventComparison";
 
 export default function Create() {
@@ -61,10 +60,11 @@ export default function Create() {
     null
   );
 
-  const [selectedEventsForComparison, setSelectedEventsForComparison] = useState<{event1: Event | null, event2: Event | null}>({
-    event1: null,
-    event2: null
-  });
+  const [selectedEventsForComparison, setSelectedEventsForComparison] =
+    useState<{ event1: Event | null; event2: Event | null }>({
+      event1: null,
+      event2: null,
+    });
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   const navigate = useNavigate();
@@ -78,7 +78,10 @@ export default function Create() {
         setIsLoadingEvent(true);
         setIsEditMode(true);
         try {
-          const fetchedEvent = await eventService.getEventById(eventId, isAuthenticated);
+          const fetchedEvent = await eventService.getEventById(
+            eventId,
+            isAuthenticated
+          );
           if (fetchedEvent) {
             // Ensure the ID is properly set in the event object and selectedProviders exists
             setEvent({
@@ -86,17 +89,19 @@ export default function Create() {
               // Ensure we have both id and _id for consistency
               id: eventId,
               _id: fetchedEvent._id || eventId,
-              selectedProviders: fetchedEvent.selectedProviders || [] // Ensure selectedProviders is an array
+              selectedProviders: fetchedEvent.selectedProviders || [], // Ensure selectedProviders is an array
             });
-            
+
             // Also set the step if available
             if (fetchedEvent.step) {
               setStep(fetchedEvent.step);
             }
-            
+
             // Set active category if available
             if (fetchedEvent.activeCategory) {
-              setActiveCategory(fetchedEvent.activeCategory as ProviderCategory);
+              setActiveCategory(
+                fetchedEvent.activeCategory as ProviderCategory
+              );
             }
           }
         } catch (error) {
@@ -106,7 +111,7 @@ export default function Create() {
         }
       }
     };
-    
+
     loadEventById();
   }, [eventId, isAuthenticated]);
 
@@ -149,56 +154,60 @@ export default function Create() {
   const hasValidEventId = (): boolean => {
     return !!(isEditMode && eventId);
   };
-  
+
   // Helper function to save the current event state
   const saveCurrentEvent = (forcePost = false) => {
     if (!event || isLoadingEvent) return;
-    
+
     // Check if this event already has an ID (either from URL or previously created)
     const eventHasId = !!(eventId || event._id);
-    
+
     const eventToSave = {
       ...event,
       // Keep existing IDs if we have them
-      _id: eventHasId ? (event._id || eventId) : undefined,
-      id: eventHasId ? (event._id || eventId) : undefined
+      _id: eventHasId ? event._id || eventId : undefined,
+      id: eventHasId ? event._id || eventId : undefined,
     };
-    
+
     // If the event has an ID or if we're not forcing a POST, use PUT
     if (eventHasId && !forcePost) {
       // Use PUT for existing events
       const id = String(event._id || eventId);
       console.log(`Updating existing event with ID ${id} using PUT`);
-      eventService.updateEventById(id, eventToSave as Event, isAuthenticated)
-        .then(updatedEvent => {
+      eventService
+        .updateEventById(id, eventToSave as Event, isAuthenticated)
+        .then((updatedEvent) => {
           if (updatedEvent) {
             console.log(`Successfully updated event: ${id}`);
           }
         })
-        .catch(error => {
+        .catch((error) => {
           console.error(`Error updating event with ID ${id}:`, error);
         });
     } else {
       // Use POST only for brand new events or when forcing POST
       console.log("Creating new event using POST");
-      eventService.createNewEvent(eventToSave as Event, isAuthenticated)
-        .then(newEvent => {
+      eventService
+        .createNewEvent(eventToSave as Event, isAuthenticated)
+        .then((newEvent) => {
           if (newEvent && newEvent._id) {
-            console.log(`Successfully created new event with ID: ${newEvent._id}`);
-            
+            console.log(
+              `Successfully created new event with ID: ${newEvent._id}`
+            );
+
             // Update state with the new ID
-            setEvent(prevEvent => ({
+            setEvent((prevEvent) => ({
               ...prevEvent,
               _id: newEvent._id,
-              id: newEvent._id
+              id: newEvent._id,
             }));
-            
+
             // Set edit mode and update URL
             setIsEditMode(true);
             navigate(`/create?eventId=${newEvent._id}`, { replace: true });
           }
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Error creating new event:", error);
         });
     }
@@ -210,16 +219,18 @@ export default function Create() {
     if (event && !isLoadingEvent) {
       // Don't auto-save for brand new events without IDs - wait for step change to force POST
       if (!eventId && !event._id) {
-        console.log("Skipping auto-save for new event - waiting for step change");
+        console.log(
+          "Skipping auto-save for new event - waiting for step change"
+        );
         return;
       }
-      
+
       // Debounce save to prevent too many requests
       const timeoutId = setTimeout(() => {
         // Only use PUT for updates
         saveCurrentEvent(false); // Explicitly pass false to ensure only PUT is used
       }, 500); // 500ms debounce
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [event, isLoadingEvent, eventId]);
@@ -260,7 +271,14 @@ export default function Create() {
         );
       }
     }
-  }, [activeCategory, isAuthenticated, guestMode, isEditMode, eventId, event._id]);
+  }, [
+    activeCategory,
+    isAuthenticated,
+    guestMode,
+    isEditMode,
+    eventId,
+    event._id,
+  ]);
 
   // Generate budget suggestions based on event type and guest count
   useEffect(() => {
@@ -389,7 +407,7 @@ export default function Create() {
         }
       }
     };
-    
+
     loadUserEvents();
   }, [step, isAuthenticated]);
 
@@ -399,7 +417,7 @@ export default function Create() {
     if (newStep === 2 && step === 1 && !hasValidEventId() && !event._id) {
       // Force a POST to create the event when stepping from step 1 to 2
       saveCurrentEvent(true); // Pass true to force POST
-      
+
       // Short delay to allow the save to complete before changing steps
       setTimeout(() => {
         setStep(newStep);
@@ -417,9 +435,9 @@ export default function Create() {
       ...event,
       ...eventData,
     };
-    
+
     setEvent(updatedEvent);
-    
+
     // Check if we're continuing with an existing event or creating a new one
     if (isEditMode || event._id) {
       // For existing events, just move to step 2
@@ -427,29 +445,32 @@ export default function Create() {
     } else {
       // For new events, directly call createNewEvent to ensure a POST request
       console.log("Creating brand new event with POST");
-      eventService.createNewEvent(updatedEvent as Event, isAuthenticated)
-        .then(newEvent => {
+      eventService
+        .createNewEvent(updatedEvent as Event, isAuthenticated)
+        .then((newEvent) => {
           if (newEvent && newEvent._id) {
-            console.log(`Successfully created new event with ID: ${newEvent._id}`);
-            
+            console.log(
+              `Successfully created new event with ID: ${newEvent._id}`
+            );
+
             // Update state with the new ID
             setEvent({
               ...updatedEvent,
               _id: newEvent._id,
-              id: newEvent._id
+              id: newEvent._id,
             });
-            
+
             // Set edit mode and update URL
             setIsEditMode(true);
             navigate(`/create?eventId=${newEvent._id}`, { replace: true });
-            
+
             // Move to step 2 after a short delay
             setTimeout(() => {
               setStep(2);
             }, 300);
           }
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Error creating new event:", error);
           // Still move to step 2 even if there's an error (will use localStorage as fallback)
           setTimeout(() => {
@@ -816,17 +837,20 @@ export default function Create() {
   const handleDeleteEvent = async (eventId: string, eventName: string) => {
     if (confirm(`Are you sure you want to delete "${eventName}"?`)) {
       try {
-        const success = await eventService.deleteEventById(eventId, isAuthenticated);
+        const success = await eventService.deleteEventById(
+          eventId,
+          isAuthenticated
+        );
         if (success) {
           // Refresh the list of events
           const events = await eventService.getEventsForStep1(isAuthenticated);
           setUserEvents(events);
         } else {
-          alert('Failed to delete the event. Please try again.');
+          alert("Failed to delete the event. Please try again.");
         }
       } catch (error) {
-        console.error('Error deleting event:', error);
-        alert('An error occurred while deleting the event.');
+        console.error("Error deleting event:", error);
+        alert("An error occurred while deleting the event.");
       }
     }
   };
@@ -844,21 +868,21 @@ export default function Create() {
       selectedProviders: [],
       // Explicitly remove any ID fields
       _id: undefined,
-      id: undefined
+      id: undefined,
     });
-    
+
     // Reset edit mode and eventId parameters
     setIsEditMode(false);
     // Update URL to remove any eventId
-    navigate('/create', { replace: true });
-    
+    navigate("/create", { replace: true });
+
     // Reset to step 1
     setStep(1);
   };
 
   // Handle adding an event to comparison
   const handleAddToComparison = (eventToAdd: Event) => {
-    setSelectedEventsForComparison(prev => {
+    setSelectedEventsForComparison((prev) => {
       // If event1 is empty, add to event1
       if (!prev.event1) {
         return { ...prev, event1: eventToAdd };
@@ -876,7 +900,10 @@ export default function Create() {
 
   // Open comparison modal if we have at least one event selected
   const handleOpenComparison = () => {
-    if (selectedEventsForComparison.event1 || selectedEventsForComparison.event2) {
+    if (
+      selectedEventsForComparison.event1 ||
+      selectedEventsForComparison.event2
+    ) {
       setShowComparisonModal(true);
     }
   };
@@ -961,28 +988,31 @@ export default function Create() {
           <h2 className="text-xl font-heading font-bold mb-6 text-center text-gray-800">
             Event Details
           </h2>
-          
-          <EventForm 
-            initialValues={event} 
-            onSubmit={handleEventSubmit} 
+
+          <EventForm
+            initialValues={event}
+            onSubmit={handleEventSubmit}
             isExistingEvent={isEditMode || !!event._id}
           />
-          
+
           {isAuthenticated && (
             <div className="mt-8 pt-8 border-t border-gray-200">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-heading font-semibold text-gray-700">
                   Your Previous Events
                 </h3>
-                
+
                 <div className="flex space-x-2">
-                  {(selectedEventsForComparison.event1 || selectedEventsForComparison.event2) && (
+                  {(selectedEventsForComparison.event1 ||
+                    selectedEventsForComparison.event2) && (
                     <div className="flex space-x-2">
                       <button
                         onClick={handleOpenComparison}
                         className="bg-primary-500 hover:bg-primary-600 text-white px-3 py-1 rounded-lg text-sm transition-colors shadow-sm"
                       >
-                        Compare Events ({selectedEventsForComparison.event1 ? "1" : "0"}/{selectedEventsForComparison.event2 ? "1" : "0"})
+                        Compare Events (
+                        {selectedEventsForComparison.event1 ? "1" : "0"}/
+                        {selectedEventsForComparison.event2 ? "1" : "0"})
                       </button>
                       <button
                         onClick={handleClearComparison}
@@ -994,8 +1024,8 @@ export default function Create() {
                   )}
                 </div>
               </div>
-              
-              <EventsList 
+
+              <EventsList
                 events={userEvents}
                 isLoading={isLoadingEvents}
                 onSelectEvent={handleSelectEvent}
