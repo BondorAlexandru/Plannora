@@ -1,11 +1,14 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const { isAuthenticated, user, isLoading, guestMode } = useAuth();
+  
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-50 via-white to-secondary-50">
       <header className="bg-gradient-to-r from-primary-500 to-accent-500 text-white shadow-md sticky top-0 z-50">
@@ -26,10 +29,40 @@ export default function Layout({ children }: LayoutProps) {
                   <Link to="/create" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Create Event</Link>
                 </li>
                 <li>
-                  <Link to="/preview" className="bg-festive-yellow-400 hover:bg-festive-yellow-500 text-white px-3 py-1 rounded-lg transition-colors duration-200 flex items-center">
-                    <span className="mr-1">🎯</span> Get Quote
-                  </Link>
+                  <Link to="/preview" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Get Quote</Link>
                 </li>
+                
+                {isLoading ? (
+                  <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
+                ) : isAuthenticated ? (
+                  <li>
+                    <Link to="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
+                      <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
+                        {user?.name?.charAt(0) || 'U'}
+                      </div>
+                      <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
+                    </Link>
+                  </li>
+                ) : guestMode ? (
+                  <li>
+                    <Link to="/login" className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg transition-colors duration-200">
+                      Guest Mode
+                    </Link>
+                  </li>
+                ) : (
+                  <>
+                    <li>
+                      <Link to="/login" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">
+                        Log In
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/register" className="bg-festive-yellow-400 hover:bg-festive-yellow-500 text-white px-3 py-1 rounded-lg transition-colors duration-200">
+                        Sign Up
+                      </Link>
+                    </li>
+                  </>
+                )}
               </ul>
             </nav>
           </div>

@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EventForm from "../components/EventForm";
 import { Event, SelectedProvider } from "../types";
 import { providers, ProviderCategory, Provider, Offer } from "../data/mockData";
 import ProviderDetail from "../components/ProviderDetail";
+import { useAuth } from "../contexts/AuthContext";
+import eventService from "../services/eventService";
 
 export default function Create() {
   const [searchParams] = useSearchParams();
@@ -50,42 +52,58 @@ export default function Create() {
   );
 
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { isAuthenticated, guestMode } = useAuth();
 
   // Load saved event data if it exists
   useEffect(() => {
-    const savedEvent = localStorage.getItem("event");
-    const savedStep = localStorage.getItem("eventStep");
-    const savedCategory = localStorage.getItem("activeCategory");
-
-    if (savedEvent) {
-      setEvent(JSON.parse(savedEvent));
-    }
-
-    if (savedStep) {
-      setStep(parseInt(savedStep));
-    }
-
-    if (savedCategory) {
-      setActiveCategory(savedCategory as ProviderCategory);
-    }
-  }, []);
+    const loadData = async () => {
+      try {
+        // Get event data from server or localStorage based on authentication
+        const savedEvent = await eventService.getEvent(isAuthenticated, guestMode);
+        
+        if (savedEvent) {
+          setEvent(savedEvent);
+        }
+        
+        // Get step data
+        const savedStep = localStorage.getItem("eventStep");
+        if (savedStep) {
+          setStep(parseInt(savedStep));
+        }
+        
+        // Get active category data
+        const savedCategory = localStorage.getItem("activeCategory");
+        if (savedCategory) {
+          setActiveCategory(savedCategory as ProviderCategory);
+        }
+      } catch (error) {
+        console.error("Error loading event data:", error);
+      }
+    };
+    
+    loadData();
+  }, [isAuthenticated, guestMode]);
 
   // Save event data whenever it changes
   useEffect(() => {
-    localStorage.setItem("event", JSON.stringify(event));
-  }, [event]);
+    if (event) {
+      eventService.saveEvent(event, isAuthenticated, guestMode);
+    }
+  }, [event, isAuthenticated, guestMode]);
 
   // Save step data whenever it changes
   useEffect(() => {
-    localStorage.setItem("eventStep", step.toString());
-  }, [step]);
+    eventService.saveEventStep(step, isAuthenticated, guestMode);
+  }, [step, isAuthenticated, guestMode]);
 
   // Save active category whenever it changes
   useEffect(() => {
     if (activeCategory) {
-      localStorage.setItem("activeCategory", activeCategory);
+      eventService.saveActiveCategory(activeCategory, isAuthenticated, guestMode);
     }
-  }, [activeCategory]);
+  }, [activeCategory, isAuthenticated, guestMode]);
 
   // Generate budget suggestions based on event type and guest count
   useEffect(() => {
@@ -563,6 +581,21 @@ export default function Create() {
     alert("All data has been cleared. You can start fresh!");
   };
 
+  const handleExportData = () => {
+    // Implement export functionality
+    console.log("Exporting data");
+  };
+
+  const handleImportClick = () => {
+    // Implement import click functionality
+    console.log("Import clicked");
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Implement import data functionality
+    console.log("Import data", e.target.files);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="text-center mb-10">
@@ -581,6 +614,28 @@ export default function Create() {
         >
           Clear & Start Over
         </button>
+
+        <div className="flex justify-center gap-2 mt-2">
+          <button
+            onClick={handleExportData}
+            className="bg-primary-100 hover:bg-primary-200 text-primary-700 font-medium py-1 px-4 rounded-full text-sm transition-colors"
+          >
+            Export Data
+          </button>
+          <button
+            onClick={handleImportClick}
+            className="bg-secondary-100 hover:bg-secondary-200 text-secondary-700 font-medium py-1 px-4 rounded-full text-sm transition-colors"
+          >
+            Import Data
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportData}
+            accept=".json"
+            className="hidden"
+          />
+        </div>
       </div>
 
       {/* Step Indicator */}
