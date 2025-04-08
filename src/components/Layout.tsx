@@ -94,14 +94,19 @@ export default function Layout({ children }: LayoutProps) {
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
                 ) : isAuthenticated ? (
-                  <li>
-                    <Link to="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
-                      <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
-                        {user?.name?.charAt(0) || 'U'}
-                      </div>
-                      <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
-                    </Link>
-                  </li>
+                  <>
+                    <li>
+                      <Link to="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
+                        <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
+                          {user?.name?.charAt(0) || 'U'}
+                        </div>
+                        <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <LogoutButton />
+                    </li>
+                  </>
                 ) : guestMode ? (
                   <>
                     <li>
@@ -169,18 +174,23 @@ export default function Layout({ children }: LayoutProps) {
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
                 ) : isAuthenticated ? (
-                  <li>
-                    <Link 
-                      to="/profile" 
-                      className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200 w-fit"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
-                        {user?.name?.charAt(0) || 'U'}
-                      </div>
-                      <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
-                    </Link>
-                  </li>
+                  <>
+                    <li>
+                      <Link 
+                        to="/profile" 
+                        className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200 w-fit"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
+                          {user?.name?.charAt(0) || 'U'}
+                        </div>
+                        <span className="text-white">{user?.name?.split(' ')[0] || 'User'}</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <LogoutButton onClick={() => setIsMobileMenuOpen(false)} />
+                    </li>
+                  </>
                 ) : guestMode ? (
                   <>
                     <li>

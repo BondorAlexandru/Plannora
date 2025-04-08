@@ -358,6 +358,40 @@ app.get('/api/auth/profile', authenticate, async (req, res) => {
   }
 });
 
+// Logout route
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    // Set explicit CORS headers for consistent handling
+    const origin = process.env.NODE_ENV === 'production'
+      ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+        ? req.headers.origin : 'https://plannora.vercel.app')
+      : 'http://localhost:3209';
+      
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'POST');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Clear the token cookie with comprehensive options
+    res.cookie('token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      expires: new Date(0), // Expire immediately
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/'
+    });
+    
+    // Also clear any localStorage token on the client side by informing it in response
+    return res.status(200).json({ 
+      message: 'Logged out successfully',
+      clearLocalStorage: true
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ message: 'Server error during logout' });
+  }
+});
+
 // EVENT ROUTES
 
 // Get current/latest event

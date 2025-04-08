@@ -29,10 +29,14 @@ const UserProfile: React.FC = () => {
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
+      console.log('Starting logout process from profile page');
       await logout();
+      console.log('Logout successful, navigating to home page');
       navigate('/');
     } catch (error) {
-      console.error('Logout error', error);
+      console.error('Logout error in UserProfile:', error);
+      // Still try to navigate to home page even if there was an error
+      navigate('/');
     } finally {
       setIsLoggingOut(false);
     }

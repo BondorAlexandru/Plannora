@@ -154,9 +154,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Only call the logout API if authenticated (not in guest mode)
       if (isAuthenticated) {
-        await axios.post(`${API_URL}/auth/logout`);
+        try {
+          const response = await axios.post(`${API_URL}/auth/logout`);
+          console.log('Logout successful:', response.data);
+        } catch (apiError) {
+          console.error('API logout error:', apiError);
+          // Continue with client-side logout even if API call fails
+        }
       }
       
+      // Always perform client-side logout actions regardless of API success
       setUser(null);
       setIsAuthenticated(false);
       
@@ -174,7 +181,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('activeCategory');
       
     } catch (err: any) {
+      console.error('Logout process error:', err);
       setError(err.response?.data?.message || 'Logout failed. Please try again.');
+      // Still try to clean up client-side state
+      setUser(null);
+      setIsAuthenticated(false);
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
     } finally {
       setIsLoading(false);
     }
