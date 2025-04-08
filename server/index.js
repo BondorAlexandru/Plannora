@@ -126,11 +126,13 @@ const Event = mongoose.model('Event', eventSchema);
 // CORS setup with options
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? [/\.vercel\.app$/, /\.plannora\.com$/] 
+    ? [/\.vercel\.app$/, /\.plannora\.com$/, '*'] 
     : 'http://localhost:3209',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
   maxAge: 86400
 };
 
@@ -138,6 +140,19 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+// Add OPTIONS route handlers for CORS preflight
+app.options('*', cors(corsOptions));
+
+// Add a direct login route for testing
+app.post('/api/auth/login-test', async (req, res) => {
+  try {
+    res.status(200).json({ message: 'Login test endpoint working' });
+  } catch (error) {
+    console.error('Login test error:', error);
+    res.status(500).json({ message: 'Server error during login test' });
+  }
+});
 
 // Static file serving
 const staticPath = join(__dirname, '../../');
