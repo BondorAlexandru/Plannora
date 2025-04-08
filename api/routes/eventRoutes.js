@@ -144,6 +144,11 @@ export default function eventRoutes(app) {
     try {
       const eventId = req.params.id;
       
+      // Validate ObjectId format first
+      if (!eventId.match(/^[0-9a-fA-F]{24}$/)) {
+        return res.status(400).json({ message: 'Invalid event ID format' });
+      }
+      
       const { db } = await connectToMongoDB();
       if (!db) {
         return res.status(500).json({ message: 'Database connection failed' });
@@ -163,17 +168,25 @@ export default function eventRoutes(app) {
       delete updateData.id;
       delete updateData.user;
       
-      const result = await eventsCollection.findOneAndUpdate(
-        { _id: new ObjectId(eventId), user: userId },
-        { $set: updateData },
-        { returnDocument: 'after' }
-      );
+      // Log what we're trying to update for debugging
+      console.log(`Updating event ${eventId} for user ${userId}`, updateData);
       
-      if (!result.value) {
-        return res.status(404).json({ message: 'Event not found or not owned by user' });
+      try {
+        const result = await eventsCollection.findOneAndUpdate(
+          { _id: new ObjectId(eventId), user: userId },
+          { $set: updateData },
+          { returnDocument: 'after' }
+        );
+        
+        if (!result.value) {
+          return res.status(404).json({ message: 'Event not found or not owned by user' });
+        }
+        
+        return res.status(200).json(result.value);
+      } catch (mongoError) {
+        console.error('MongoDB error during update:', mongoError);
+        return res.status(500).json({ message: 'Error updating event in database', error: mongoError.message });
       }
-      
-      return res.status(200).json(result.value);
     } catch (error) {
       console.error('Error updating event:', error);
       return res.status(500).json({ message: 'Error updating event', error: error.message });

@@ -2,10 +2,13 @@ import axios from 'axios';
 import { Event } from '../types';
 
 // Define the base URL for API calls
-const API_URL = 'http://localhost:5001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 // Configure axios defaults for cookies
 axios.defaults.withCredentials = true;
+
+// For debugging
+console.log('Using API URL:', API_URL);
 
 // Helper function to ensure auth token is set
 const ensureAuthToken = () => {
@@ -71,7 +74,12 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
 };
 
 // Get event from server or create a new one if none exists
-export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean): Promise<Event | null> => {
+export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean, forceFresh: boolean = false): Promise<Event | null> => {
+  // If forceFresh is true, return null to create a fresh event
+  if (forceFresh) {
+    return null;
+  }
+  
   if (!isAuthenticated || isGuestMode) {
     const storedEvent = localStorage.getItem('event');
     return storedEvent ? JSON.parse(storedEvent) : null;
@@ -128,12 +136,12 @@ export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean): 
 
 // Save event step to server or localStorage
 export const saveEventStep = async (step: number, isAuthenticated: boolean, isGuestMode: boolean, eventId?: string): Promise<void> => {
-  if (isAuthenticated && !isGuestMode) {
+  if (isAuthenticated && !isGuestMode && eventId) {
     // Save to server
     ensureAuthToken();
     try {
       // Make sure we're sending the correct format the API expects
-      const payload = eventId ? { step: parseInt(step.toString()), eventId } : { step: parseInt(step.toString()) };
+      const payload = { step: parseInt(step.toString()), eventId };
       console.log('Sending step payload:', payload);
       await axios.patch(`${API_URL}/events/step`, payload);
     } catch (error) {
@@ -187,15 +195,16 @@ export const createNewEvent = async (event: Event, isAuthenticated: boolean): Pr
 // Update existing event by ID - only use for events with an ID
 export const updateEventById = async (eventId: string, event: Event, isAuthenticated: boolean): Promise<Event | null> => {
   if (!isAuthenticated) {
-    return null;
+    localStorage.setItem('event', JSON.stringify(event));
+    return event;
   }
   
   // Validate ObjectId format
   if (!isValidObjectId(eventId)) {
     console.error(`Invalid MongoDB ObjectId format: ${eventId}`);
-    
-    // Try to create a new event instead of updating
-    return createNewEvent(event, isAuthenticated);
+    // Save to localStorage as fallback
+    localStorage.setItem('event', JSON.stringify(event));
+    return event;
   }
   
   ensureAuthToken();
@@ -220,13 +229,17 @@ export const updateEventById = async (eventId: string, event: Event, isAuthentic
   } catch (error: any) {
     console.error(`Error updating event with ID ${eventId}:`, error);
     
-    // If we get a 404, the event might not exist - try to create it
+    // Save to localStorage for all errors as fallback
+    localStorage.setItem('event', JSON.stringify(event));
+    
+    // Only log the message for 404, but still save the event data
     if (error.response && error.response.status === 404) {
-      console.log('Event not found, creating a new one instead');
-      return createNewEvent(event, isAuthenticated);
+      console.log('Event not found, saving to localStorage and will create on next save');
+      // Return the event from localStorage rather than null to prevent data loss
+      return event;
     }
     
-    return null;
+    return event;  // Return event rather than null to maintain state
   }
 };
 
@@ -236,6 +249,7 @@ export const deleteEventById = async (eventId: string, isAuthenticated: boolean)
     return false;
   }
   
+  ensureAuthToken();
   try {
     await axios.delete(`${API_URL}/events/${eventId}`);
     return true;

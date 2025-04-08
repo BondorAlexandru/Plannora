@@ -46,34 +46,47 @@ const Preview = () => {
   const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadEvent = async () => {
       setIsLoading(true);
+      setError(null);
       const eventId = searchParams.get('eventId');
       
+      // First try localStorage in all cases
+      const savedEvent = localStorage.getItem('event');
+      let localEvent = savedEvent ? JSON.parse(savedEvent) : null;
+      
       if (eventId && isAuthenticated) {
-        // If we have an event ID in the URL and user is authenticated, load from API
+        // If we have an event ID in the URL and user is authenticated, try to load from API
         try {
+          console.log(`Attempting to load event with ID: ${eventId}`);
           const fetchedEvent = await eventService.getEventById(eventId, isAuthenticated);
+          
           if (fetchedEvent) {
+            console.log(`Successfully loaded event from API: ${eventId}`);
             setEvent(fetchedEvent);
             setSampleMode(false);
             setIsLoading(false);
             return;
+          } else {
+            console.log(`Event ID ${eventId} not found on server, using localStorage fallback`);
           }
         } catch (error) {
-          console.error("Error loading event by ID:", error);
+          console.error(`Error loading event ${eventId} from API:`, error);
+          // Don't set error state here, we'll try localStorage first
         }
       }
       
-      // Fallback to localStorage
-      const savedEvent = localStorage.getItem('event');
-      if (savedEvent) {
-        setEvent(JSON.parse(savedEvent));
+      // Fallback to localStorage if API call failed or wasn't attempted
+      if (localEvent) {
+        console.log('Using event from localStorage');
+        setEvent(localEvent);
         setSampleMode(false);
       } else {
-        // If no event data, create sample data for demo purposes
+        // If no event data anywhere, create sample data for demo purposes
+        console.log('No event data found, using sample mode');
         setSampleMode(true);
         setEvent({
           name: 'Sample Event',
@@ -88,7 +101,11 @@ const Preview = () => {
       setIsLoading(false);
     };
     
-    loadEvent();
+    loadEvent().catch(err => {
+      console.error('Unhandled error in loadEvent:', err);
+      setError('Failed to load event data. Please try again or create a new event.');
+      setIsLoading(false);
+    });
     
     // Show optimization tips after a delay for better UX
     const timer = setTimeout(() => {
@@ -206,6 +223,31 @@ const Preview = () => {
     // Navigate to home
     navigate('/');
   };
+
+  // Add this error UI component
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="bg-white rounded-xl shadow-fun p-6 text-center">
+          <div className="text-red-500 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-display text-primary-600 mb-4">Error Loading Preview</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col md:flex-row gap-4 justify-center">
+            <a href="/create" className="btn-primary text-center">
+              Return to Event Creation
+            </a>
+            <a href="/create?fresh=true" className="btn-secondary text-center">
+              Start a New Event
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">

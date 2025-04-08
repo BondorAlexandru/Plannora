@@ -134,7 +134,7 @@ export default function Create() {
 
   const { isAuthenticated, guestMode } = useAuth();
 
-  // Load event by ID if provided
+  // Modify the useEffect for loading event by ID to better handle errors and prevent new event creation on refresh
   useEffect(() => {
     const loadEventById = async () => {
       if (eventId && isAuthenticated) {
@@ -166,9 +166,14 @@ export default function Create() {
                 fetchedEvent.activeCategory as ProviderCategory
               );
             }
+          } else {
+            // Handle case when event is not found - don't create a new one automatically
+            console.error("Event not found, but ID was provided");
+            setIsEditMode(false);
           }
         } catch (error) {
           console.error("Error loading event by ID:", error);
+          setIsEditMode(false);
         } finally {
           setIsLoadingEvent(false);
         }
@@ -183,26 +188,38 @@ export default function Create() {
     if (!eventId) {
       const loadData = async () => {
         try {
-          // Get event data from server or localStorage based on authentication
-          const savedEvent = await eventService.getEvent(
-            isAuthenticated,
-            guestMode
+          // Check if we're in the process of creating a new event
+          const freshStart = searchParams.get("fresh") === "true";
+          const isFreshStart = freshStart || (
+            event.name === "" && 
+            event.guestCount === 0 && 
+            event.budget === 0 && 
+            event.selectedProviders.length === 0
           );
+                             
+          // Only try to load saved data if we're not explicitly starting fresh
+          if (!isFreshStart) {
+            // Get event data from server or localStorage based on authentication
+            const savedEvent = await eventService.getEvent(
+              isAuthenticated,
+              guestMode
+            );
 
-          if (savedEvent) {
-            setEvent(savedEvent);
-          }
+            if (savedEvent) {
+              setEvent(savedEvent);
+            }
 
-          // Get step data
-          const savedStep = localStorage.getItem("eventStep");
-          if (savedStep) {
-            setStep(parseInt(savedStep));
-          }
+            // Get step data
+            const savedStep = localStorage.getItem("eventStep");
+            if (savedStep) {
+              setStep(parseInt(savedStep));
+            }
 
-          // Get active category data
-          const savedCategory = localStorage.getItem("activeCategory");
-          if (savedCategory) {
-            setActiveCategory(savedCategory as ProviderCategory);
+            // Get active category data
+            const savedCategory = localStorage.getItem("activeCategory");
+            if (savedCategory) {
+              setActiveCategory(savedCategory as ProviderCategory);
+            }
           }
         } catch (error) {
           console.error("Error loading event data:", error);
@@ -211,7 +228,7 @@ export default function Create() {
 
       loadData();
     }
-  }, [isAuthenticated, guestMode, eventId]);
+  }, [isAuthenticated, guestMode, eventId, searchParams, event.name, event.guestCount, event.budget, event.selectedProviders.length]);
 
   // Helper to determine if we have a valid event ID from the server
   const hasValidEventId = (): boolean => {
@@ -220,7 +237,7 @@ export default function Create() {
 
   // Helper function to save the current event state
   const saveCurrentEvent = (forcePost = false) => {
-    if (!event || isLoadingEvent) return;
+    if (!event || isLoadingEvent) return Promise.resolve(event);
 
     // Check if this event already has an ID (either from URL or previously created)
     const eventHasId = !!(eventId || event._id);
@@ -232,48 +249,88 @@ export default function Create() {
       id: eventHasId ? event._id || eventId : undefined,
     };
 
-    // If the event has an ID or if we're not forcing a POST, use PUT
+    // If the event has an ID and we're not forcing a POST, use PUT
     if (eventHasId && !forcePost) {
       // Use PUT for existing events
       const id = String(event._id || eventId);
       console.log(`Updating existing event with ID ${id} using PUT`);
-      eventService
+      return eventService
         .updateEventById(id, eventToSave as Event, isAuthenticated)
         .then((updatedEvent) => {
           if (updatedEvent) {
             console.log(`Successfully updated event: ${id}`);
+            
+            // If the update was successful but created a new event (the localStorage fallback case)
+            if (updatedEvent._id !== id && updatedEvent._id) {
+              console.log(`Server created new event with ID: ${updatedEvent._id}`);
+              // Update state with the new ID
+              setEvent(prev => ({
+                ...prev,
+                _id: updatedEvent._id,
+                id: updatedEvent._id,
+              }));
+              
+              // Set edit mode and update URL
+              setIsEditMode(true);
+              navigate(`/create?eventId=${updatedEvent._id}`, { replace: true });
+            }
+            
+            return updatedEvent;
+          } else {
+            // For null returns, create a new event without prompting
+            console.log(`Event with ID ${id} not found, creating new copy`);
+            return createNewEvent();
           }
         })
         .catch((error) => {
           console.error(`Error updating event with ID ${id}:`, error);
+          // Save to localStorage as fallback and continue without prompting
+          localStorage.setItem('event', JSON.stringify(event));
+          console.log(`Error saving event, using localStorage fallback`);
+          return event;
         });
     } else {
-      // Use POST only for brand new events or when forcing POST
-      console.log("Creating new event using POST");
-      eventService
-        .createNewEvent(eventToSave as Event, isAuthenticated)
-        .then((newEvent) => {
-          if (newEvent && newEvent._id) {
-            console.log(
-              `Successfully created new event with ID: ${newEvent._id}`
-            );
-
-            // Update state with the new ID
-            setEvent((prevEvent) => ({
-              ...prevEvent,
-              _id: newEvent._id,
-              id: newEvent._id,
-            }));
-
-            // Set edit mode and update URL
-            setIsEditMode(true);
-            navigate(`/create?eventId=${newEvent._id}`, { replace: true });
-          }
-        })
-        .catch((error) => {
-          console.error("Error creating new event:", error);
-        });
+      // Use POST for brand new events or when forcing POST
+      return createNewEvent();
     }
+  };
+
+  // Helper to create a new event
+  const createNewEvent = () => {
+    console.log("Creating new event using POST");
+    // Remove any ID fields to ensure we create a new document
+    const eventToPost = { ...event };
+    delete eventToPost._id;
+    delete eventToPost.id;
+    
+    return eventService
+      .createNewEvent(eventToPost as Event, isAuthenticated)
+      .then((newEvent) => {
+        if (newEvent && newEvent._id) {
+          console.log(`Successfully created new event with ID: ${newEvent._id}`);
+
+          // Update state with the new ID
+          setEvent((prevEvent) => ({
+            ...prevEvent,
+            _id: newEvent._id,
+            id: newEvent._id,
+          }));
+
+          // Set edit mode and update URL
+          setIsEditMode(true);
+          navigate(`/create?eventId=${newEvent._id}`, { replace: true });
+          
+          return newEvent;
+        }
+        return null;
+      })
+      .catch((error) => {
+        console.error("Error creating new event:", error);
+        // Save to localStorage as fallback
+        localStorage.setItem('event', JSON.stringify(event));
+        alert(`Error creating your event. Changes saved locally.`);
+        return null;
+      });
   };
 
   // Replace the existing useEffect for saving event data
@@ -290,49 +347,74 @@ export default function Create() {
 
       // Debounce save to prevent too many requests
       const timeoutId = setTimeout(() => {
-        // Only use PUT for updates
-        saveCurrentEvent(false); // Explicitly pass false to ensure only PUT is used
+        // Only use PUT for updates and only if we're in edit mode
+        if (isEditMode && (event._id || eventId)) {
+          saveCurrentEvent(false); // Use the helper function to save
+        } else if (!isEditMode) {
+          // Just save to localStorage if not in edit mode
+          localStorage.setItem('event', JSON.stringify(event));
+        }
       }, 500); // 500ms debounce
 
       return () => clearTimeout(timeoutId);
     }
-  }, [event, isLoadingEvent, eventId]);
+  }, [event, isLoadingEvent, eventId, isEditMode, isAuthenticated]);
 
-  // Save step data whenever it changes
+  // Modify the useEffect for saving steps to handle errors better
   useEffect(() => {
-    if (isEditMode && eventId) {
-      eventService.saveEventStep(step, isAuthenticated, guestMode, eventId);
-    } else if (event._id) {
-      eventService.saveEventStep(step, isAuthenticated, guestMode, event._id);
+    if (!event || isLoadingEvent) return;
+
+    // Only attempt to save the step to the server if we have an event ID
+    if (isEditMode && eventId && isAuthenticated) {
+      eventService.saveEventStep(step, isAuthenticated, guestMode, eventId)
+        .catch(error => {
+          console.error('Error saving event step:', error);
+          // Fallback to local storage
+          localStorage.setItem('eventStep', step.toString());
+        });
+    } else if (event._id && isAuthenticated) {
+      eventService.saveEventStep(step, isAuthenticated, guestMode, event._id)
+        .catch(error => {
+          console.error('Error saving event step:', error);
+          // Fallback to local storage
+          localStorage.setItem('eventStep', step.toString());
+        });
     } else {
-      eventService.saveEventStep(step, isAuthenticated, guestMode);
+      // If no event ID or not authenticated, just use localStorage
+      localStorage.setItem('eventStep', step.toString());
     }
-  }, [step, isAuthenticated, guestMode, isEditMode, eventId, event._id]);
+  }, [step, isAuthenticated, guestMode, isEditMode, eventId, event._id, isLoadingEvent]);
 
-  // Save active category whenever it changes
+  // Modify the useEffect for saving active category to handle errors better
   useEffect(() => {
-    if (activeCategory) {
-      if (isEditMode && eventId) {
-        eventService.saveActiveCategory(
-          activeCategory,
-          isAuthenticated,
-          guestMode,
-          eventId
-        );
-      } else if (event._id) {
-        eventService.saveActiveCategory(
-          activeCategory,
-          isAuthenticated,
-          guestMode,
-          event._id
-        );
-      } else {
-        eventService.saveActiveCategory(
-          activeCategory,
-          isAuthenticated,
-          guestMode
-        );
-      }
+    if (!event || isLoadingEvent || !activeCategory) return;
+
+    // Only attempt to save the category to the server if we have an event ID
+    if (isEditMode && eventId && isAuthenticated) {
+      eventService.saveActiveCategory(
+        activeCategory,
+        isAuthenticated,
+        guestMode,
+        eventId
+      ).catch(error => {
+        console.error('Error saving active category:', error);
+        // Fallback to local storage
+        localStorage.setItem('activeCategory', activeCategory);
+      });
+    } else if (event._id && isAuthenticated) {
+      eventService.saveActiveCategory(
+        activeCategory,
+        isAuthenticated,
+        guestMode,
+        event._id
+      ).catch(error => {
+        console.error('Error saving active category:', error);
+        // Fallback to local storage
+        localStorage.setItem('activeCategory', activeCategory);
+      });
+    } else {
+      // If no event ID or not authenticated, just use localStorage
+      localStorage.setItem('activeCategory', activeCategory);
     }
   }, [
     activeCategory,
@@ -340,7 +422,8 @@ export default function Create() {
     guestMode,
     isEditMode,
     eventId,
-    event._id,
+    event?._id,
+    isLoadingEvent
   ]);
 
   // Generate budget suggestions based on event type and guest count
@@ -842,17 +925,25 @@ export default function Create() {
   }, [event.guestCount]);
 
   const handleSubmit = () => {
-    // First save the current event if it's not already saved
-    if (!event._id) {
-      saveCurrentEvent(true);
-      // Short delay to let the save complete
-      setTimeout(() => {
+    // Save the event first
+    saveCurrentEvent(false)
+      .then(savedEvent => {
+        // Navigate to preview with or without an ID
+        if (savedEvent && (savedEvent._id || event?._id)) {
+          const id = savedEvent?._id || event?._id || '';
+          navigate(`/preview?eventId=${id}`);
+        } else {
+          // Fallback to localStorage and basic preview
+          localStorage.setItem('event', JSON.stringify(event));
+          navigate("/preview");
+        }
+      })
+      .catch(error => {
+        console.error("Error saving event before preview:", error);
+        // Still navigate but using localStorage as fallback
+        localStorage.setItem('event', JSON.stringify(event));
         navigate("/preview");
-      }, 300);
-    } else {
-      // For already saved events, just navigate to preview
-      navigate(`/preview?eventId=${event._id}`);
-    }
+      });
   };
 
   const calculateTotal = () => {
@@ -929,6 +1020,11 @@ export default function Create() {
 
   // Add a function to handle creating a new event
   const handleCreateNewEvent = () => {
+    // Clear ALL event data from localStorage
+    localStorage.removeItem("event");
+    localStorage.removeItem("eventStep");
+    localStorage.removeItem("activeCategory");
+    
     // Clear form data and reset to default values
     setEvent({
       name: "",
@@ -941,15 +1037,23 @@ export default function Create() {
       // Explicitly remove any ID fields
       _id: undefined,
       id: undefined,
+      step: 1,
+      activeCategory: undefined
     });
 
+    // Reset all related state variables
+    setStep(1);
+    setActiveCategory(null);
+    setBudgetSuggestions([]);
+    setBudgetImpact(null);
+    setQuickAlternatives(null);
+    setSelectedProvider(null);
+    
     // Reset edit mode and eventId parameters
     setIsEditMode(false);
-    // Update URL to remove any eventId
-    navigate("/create", { replace: true });
-
-    // Reset to step 1
-    setStep(1);
+    
+    // Update URL to remove any eventId and add parameter to prevent auto-loading data
+    navigate("/create?fresh=true", { replace: true });
   };
 
   // Handle adding an event to comparison
