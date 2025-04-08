@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Provider, ProviderCategory } from '../data/mockData';
 import { Event } from '../types';
 
@@ -37,7 +37,7 @@ const defaultEventConfig: EventConfig = {
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
 
-export const EventProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const EventProvider = ({ children }: { children: React.ReactNode }) => {
   const [eventConfig, setEventConfig] = useState<EventConfig>(defaultEventConfig);
 
   // Load from localStorage on mount
@@ -188,5 +188,5 @@ export const useEvent = (): EventContextType => {
   if (context === undefined) {
     throw new Error('useEvent must be used within an EventProvider');
   }
-  return context;
+  return context as EventContextType;
 }; 
