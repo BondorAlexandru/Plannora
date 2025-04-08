@@ -11,15 +11,37 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "outDir": "dist",
+    "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     },
-    "typeRoots": ["./node_modules/@types"],
-    "types": ["react", "react-dom"]
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "types": [
+      "react",
+      "react-dom"
+    ],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "incremental": true
   },
-  "include": ["src/**/*", "server/**/*", "**/*.d.ts"],
-  "exclude": ["node_modules"]
-} 
+  "include": [
+    "src/**/*",
+    "pages/**/*",
+    "styles/**/*",
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

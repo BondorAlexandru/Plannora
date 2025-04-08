@@ -81,7 +81,7 @@ app.use(cookieParser());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [/\.vercel\.app$/, /\.plannora\.com$/, '*'] 
-    : 'http://localhost:3209',
+    : ['http://localhost:3209', 'http://localhost:4000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

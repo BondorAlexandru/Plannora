@@ -4,12 +4,75 @@ import EventForm from "../components/EventForm";
 import { Event, SelectedProvider } from "../types";
 import { providers, ProviderCategory, Provider, Offer } from "../data/mockData";
 import ProviderDetail from "../components/ProviderDetail";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/NextAuthContext";
 import eventService from "../services/eventService";
 import EventStepSelector from "../components/EventStepSelector";
 import EventsList from "../components/EventsList";
 import ServicesSelection from "../components/ServicesSelection";
 import EventComparison from "../components/EventComparison";
+import React from "react";
+
+// Component wrapper function that handles React version compatibility
+function compatibleComponent<P>(Component: any): React.FC<P> {
+  return Component as unknown as React.FC<P>;
+}
+
+// Create type-safe versions of our components
+const SafeEventStepSelector = compatibleComponent<{
+  currentStep: number;
+  onChange: (newStep: number) => void;
+}>(EventStepSelector);
+
+const SafeEventsList = compatibleComponent<{
+  events: Event[];
+  isLoading: boolean;
+  onSelectEvent: (selectedEvent: Event) => void;
+  onDeleteEvent: (eventId: string, eventName: string) => Promise<void>;
+  onAddToComparison: (eventToAdd: Event) => void;
+  selectedForComparison: { event1: Event | null; event2: Event | null };
+}>(EventsList);
+
+const SafeServicesSelection = compatibleComponent<{
+  event: Event;
+  providers: Provider[];
+  activeCategory: ProviderCategory | null;
+  setActiveCategory: (value: ProviderCategory | null) => void;
+  handleSelectProvider: (provider: SelectedProvider) => void;
+  handleViewProviderDetail: (provider: Provider) => void;
+  calculateTotal: () => number;
+  percentUsed: number;
+  budgetRemaining: number;
+  isOverBudget: boolean;
+  setStep: (step: number) => void;
+  handleSubmit: () => void;
+  budgetImpact: {
+    provider: SelectedProvider;
+    impact: string;
+    isPositive: boolean;
+  } | null;
+  showBudgetAlert: boolean;
+  budgetSuggestions: {
+    category: ProviderCategory;
+    suggestion: string;
+    minPrice: number;
+  }[];
+}>(ServicesSelection);
+
+const SafeProviderDetail = compatibleComponent<{
+  provider: Provider;
+  onClose: () => void;
+  onSelectOffer: (provider: Provider, offer: Offer) => void;
+  guestCount: number;
+  isPerPerson: boolean;
+  selectedOfferId?: string;
+}>(ProviderDetail);
+
+const SafeEventComparison = compatibleComponent<{
+  event1: Event | null;
+  event2: Event | null;
+  onClose: () => void;
+  onSelectEvent: (selectedEvent: Event) => void;
+}>(EventComparison);
 
 export default function Create() {
   const [searchParams] = useSearchParams();
@@ -951,7 +1014,10 @@ export default function Create() {
       </div>
 
       {/* Step Selector Component */}
-      <EventStepSelector currentStep={step} onChange={handleStepChange} />
+      <SafeEventStepSelector
+        currentStep={step}
+        onChange={handleStepChange}
+      />
 
       {step === 1 ? (
         <div className="bg-white rounded-xl shadow-fun p-6 md:p-8 transition-all">
@@ -1025,7 +1091,7 @@ export default function Create() {
                 </div>
               </div>
 
-              <EventsList
+              <SafeEventsList
                 events={userEvents}
                 isLoading={isLoadingEvents}
                 onSelectEvent={handleSelectEvent}
@@ -1037,7 +1103,7 @@ export default function Create() {
           )}
         </div>
       ) : (
-        <ServicesSelection
+        <SafeServicesSelection
           event={event}
           providers={providers}
           activeCategory={activeCategory}
@@ -1058,22 +1124,19 @@ export default function Create() {
 
       {/* Provider Detail Modal */}
       {selectedProvider && (
-        <ProviderDetail
+        <SafeProviderDetail
           provider={selectedProvider}
           onClose={handleCloseProviderDetail}
           onSelectOffer={handleSelectOffer}
           guestCount={event.guestCount}
           isPerPerson={selectedProvider.category === ProviderCategory.CATERING}
-          selectedOfferId={
-            event.selectedProviders.find((p) => p.id === selectedProvider.id)
-              ?.offerId
-          }
+          selectedOfferId={event.selectedProviders.find(p => p.id === selectedProvider.id)?.offerId}
         />
       )}
 
       {/* Event Comparison Modal */}
       {showComparisonModal && (
-        <EventComparison
+        <SafeEventComparison
           event1={selectedEventsForComparison.event1}
           event2={selectedEventsForComparison.event2}
           onClose={() => setShowComparisonModal(false)}
