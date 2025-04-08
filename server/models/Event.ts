@@ -14,22 +14,6 @@ interface SelectedProvider {
   offerName?: string;
 }
 
-// Interface for the Event document
-export interface IEvent extends mongoose.Document {
-  user: IUser['_id'];
-  name: string;
-  date: string;
-  location: string;
-  guestCount: number;
-  budget: number;
-  eventType: string;
-  selectedProviders: SelectedProvider[];
-  activeCategory?: string;
-  step?: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 const selectedProviderSchema = new mongoose.Schema({
   id: {
     type: String,
