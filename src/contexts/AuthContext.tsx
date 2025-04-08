@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
 // Define the base URL for API calls
-const API_URL = import.meta.env.PROD ? '' : '/api';
+const API_URL = '/api';
 
 // Define User type
 interface User {
