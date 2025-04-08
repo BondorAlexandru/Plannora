@@ -709,17 +709,13 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Connect to MongoDB
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('MongoDB connected successfully');
-    
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  }); 
+// Export the Express app for serverless use
+export default app;
+
+// Only start the server if this file is run directly
+if (require.main === module) {
+  // Start the server
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+} 
