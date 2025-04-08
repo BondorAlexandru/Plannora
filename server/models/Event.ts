@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import { IEvent } from './types.js';
 
 // Interface for a selected provider/service
@@ -67,59 +67,20 @@ const selectedProviderSchema = new mongoose.Schema({
 });
 
 // Define Event Schema
-const eventSchema = new mongoose.Schema<IEvent>({
-  userId: {
-    type: String,
-    required: true,
-    index: true
-  },
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  date: {
-    type: Date
-  },
-  location: {
-    type: String
-  },
-  description: {
-    type: String
-  },
-  eventType: {
-    type: String,
-    default: 'Party'
-  },
-  guestCount: {
-    type: Number,
-    default: 0
-  },
-  budget: {
-    type: Number,
-    default: 0
-  },
-  selectedProviders: {
-    type: Array,
-    default: []
-  },
-  categories: {
-    type: Array,
-    default: []
-  },
-  step: {
-    type: Number,
-    default: 1
-  },
-  activeCategory: {
-    type: String,
-    default: ''
-  }
-}, {
-  timestamps: true
-});
+const eventSchema = new Schema<IEvent>({
+  userId: { type: String, required: true },
+  name: { type: String, required: true },
+  date: { type: Date, required: true },
+  location: { type: String, required: true },
+  description: { type: String, required: true },
+  eventType: { type: String, required: true },
+  guestCount: { type: Number, required: true },
+  budget: { type: Number, required: true },
+  selectedProviders: { type: [String], default: [] },
+  categories: { type: [String], default: [] },
+  step: { type: Number, default: 1 },
+  activeCategory: { type: String, default: '' }
+}, { timestamps: true });
 
 // Event model
-const Event = mongoose.model<IEvent>('Event', eventSchema);
-
-export default Event; 
+export const Event = mongoose.model<IEvent>('Event', eventSchema); 

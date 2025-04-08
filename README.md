@@ -100,4 +100,127 @@ This project is configured for easy deployment on Vercel. Simply connect your Gi
 - Admin panel for managing providers
 - Email notifications
 - PDF generation for quotes
-- Integration with payment providers 
+- Integration with payment providers
+
+# Plannora
+
+Plannora is a web application for event planning and management.
+
+## Features
+
+- User authentication (register, login, profile management)
+- Event creation and management
+- Step-by-step event planning process
+- Category-based organization of event details
+
+## Tech Stack
+
+- **Frontend**: React, TypeScript, Tailwind CSS, Vite
+- **Backend**: Node.js, Express, MongoDB, Mongoose
+- **Authentication**: JWT, bcrypt
+- **Deployment**: Netlify (Frontend + Serverless Functions)
+
+## Local Development
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- npm or yarn
+- MongoDB (local or Atlas)
+
+### Setup
+
+1. Clone the repository
+   ```
+   git clone https://github.com/yourusername/plannora.git
+   cd plannora
+   ```
+
+2. Install dependencies
+   ```
+   npm install
+   ```
+
+3. Create a `.env` file in the root directory with the following variables:
+   ```
+   MONGODB_URI=your_mongodb_connection_string
+   JWT_SECRET=your_jwt_secret
+   NODE_ENV=development
+   ```
+
+4. Start the development server
+   ```
+   npm run dev
+   ```
+
+5. Open your browser and navigate to `http://localhost:3209`
+
+## Deployment to Netlify
+
+### Prerequisites
+
+- A Netlify account
+- A MongoDB Atlas account (or your own MongoDB instance)
+
+### Deployment Steps
+
+1. Push your code to a Git repository (GitHub, GitLab, or Bitbucket)
+
+2. Log in to your Netlify account and click "New site from Git"
+
+3. Connect to your Git provider and select the repository
+
+4. Configure the build settings:
+   - **Build command**: `npm run netlify-build`
+   - **Publish directory**: `dist`
+   - **Functions directory**: `netlify/functions`
+
+5. Add the following environment variables in the Netlify dashboard:
+   - `MONGODB_URI`: Your MongoDB connection string
+   - `JWT_SECRET`: Your JWT secret key
+   - `NODE_ENV`: Set to `production`
+
+6. Click "Deploy site"
+
+### Environment Variables
+
+Make sure to set the following environment variables in your Netlify dashboard:
+
+- `MONGODB_URI`: Your MongoDB connection string
+- `JWT_SECRET`: A secure random string for JWT token generation
+- `NODE_ENV`: Set to `production` for production deployment
+
+## Project Structure
+
+```
+plannora/
+├── netlify/
+│   └── functions/
+│       └── api.js         # Netlify serverless function
+├── server/
+│   ├── config/
+│   │   └── database.ts    # Database configuration
+│   ├── middleware/
+│   │   └── auth.ts        # Authentication middleware
+│   ├── models/
+│   │   ├── Event.ts       # Event model
+│   │   ├── User.ts        # User model
+│   │   └── types.ts       # TypeScript interfaces
+│   └── routes/
+│       ├── authRoutes.ts  # Authentication routes
+│       └── eventRoutes.ts # Event routes
+├── src/
+│   ├── components/        # React components
+│   ├── contexts/          # React contexts
+│   ├── pages/             # Page components
+│   └── utils/
+│       └── api.js         # API client
+├── .env                   # Environment variables
+├── netlify.toml           # Netlify configuration
+├── package.json           # Project dependencies
+└── vite.config.js         # Vite configuration
+```
+
+## License
+
+MIT 

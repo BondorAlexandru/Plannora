@@ -1,63 +1,66 @@
 import express from 'express';
-import Event from '../models/Event.js';
+import { Event } from '../models/Event.js';
 import { authenticate } from '../middleware/auth.js';
 import { connectToDatabase } from '../config/database.js';
 
 const router = express.Router();
 
-// Get current/latest event
+// Get current event for the authenticated user
 router.get('/current', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     
-    // Find the latest event for this user
-    const event = await Event.findOne({ userId }).sort({ updatedAt: -1 });
-    
-    if (!event) {
-      return res.status(404).json({ message: 'No events found' });
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
     
-    res.status(200).json(event);
+    const event = await Event.findOne({ userId }).sort({ createdAt: -1 });
+    res.json(event);
   } catch (error) {
     console.error('Error getting current event:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get all events
+// Get all events for the authenticated user
 router.get('/', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     
-    // Find all events for this user
-    const events = await Event.find({ userId }).sort({ updatedAt: -1 });
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
-    res.status(200).json(events);
+    const events = await Event.find({ userId });
+    res.json(events);
   } catch (error) {
-    console.error('Error getting all events:', error);
+    console.error('Error getting events:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Get event by id
+// Get a specific event by ID
 router.get('/:id', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     const eventId = req.params.id;
     
-    // Find the event by ID and ensure it belongs to this user
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const event = await Event.findOne({ _id: eventId, userId });
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
     
-    res.status(200).json(event);
+    res.json(event);
   } catch (error) {
-    console.error('Error getting event by ID:', error);
+    console.error('Error getting event:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -66,101 +69,66 @@ router.get('/:id', authenticate, async (req, res) => {
 router.post('/', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     const eventData = req.body;
     
-    // Add the user ID to the event data
-    eventData.userId = userId;
-    
-    // Ensure selectedProviders exists
-    if (!eventData.selectedProviders) {
-      eventData.selectedProviders = [];
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
     
     let event;
     
-    // If an ID is provided, update the existing event
-    if (eventData._id || eventData.id) {
-      const eventId = eventData._id || eventData.id;
-      
-      // Make sure the event belongs to this user
-      const existingEvent = await Event.findOne({ 
-        _id: eventId, 
-        userId 
-      });
-      
-      if (!existingEvent) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-      
-      // Update the event
-      event = await Event.findByIdAndUpdate(
-        eventId,
-        eventData,
+    if (eventData._id) {
+      // Update existing event
+      event = await Event.findOneAndUpdate(
+        { _id: eventData._id, userId },
+        { $set: eventData },
         { new: true }
       );
       
-      console.log(`Updated existing event with ID: ${eventId}`);
-    } else {
-      // Check if the user already has events with the same name, to avoid duplicates
-      const similarEvent = await Event.findOne({
-        userId,
-        name: eventData.name
-      });
-      
-      if (similarEvent) {
-        // Update the existing event instead of creating a new one
-        event = await Event.findByIdAndUpdate(
-          similarEvent._id,
-          eventData,
-          { new: true }
-        );
-        
-        console.log(`Updated similar existing event with ID: ${similarEvent._id}`);
-      } else {
-        // Create a new event only if no similar event exists
-        event = await Event.create(eventData);
-        console.log(`Created new event with ID: ${event._id}`);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
       }
+    } else {
+      // Create new event
+      event = new Event({
+        ...eventData,
+        userId
+      });
+      await event.save();
     }
     
-    res.status(200).json(event);
+    res.json(event);
   } catch (error) {
     console.error('Error creating/updating event:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Create a new event
+// Create a new event (ensuring no existing ID is used)
 router.post('/new', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     const eventData = req.body;
     
-    // Add the user ID to the event data
-    eventData.userId = userId;
-    
-    // Ensure selectedProviders exists
-    if (!eventData.selectedProviders) {
-      eventData.selectedProviders = [];
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
     
-    // Make sure we're not trying to create an event with an existing ID
-    if (eventData._id || eventData.id) {
-      return res.status(400).json({ 
-        message: 'Cannot create new event with an existing ID. Use PUT /api/events/:id to update existing events.' 
-      });
-    }
+    // Remove _id if it exists to ensure a new document is created
+    delete eventData._id;
     
-    // Create a new event
-    const event = await Event.create(eventData);
-    console.log(`Created new event with ID: ${event._id}`);
+    const event = new Event({
+      ...eventData,
+      userId
+    });
     
-    res.status(201).json(event);
+    await event.save();
+    res.json(event);
   } catch (error) {
     console.error('Error creating new event:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -168,46 +136,28 @@ router.post('/new', authenticate, async (req, res) => {
 router.put('/:id', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     const eventId = req.params.id;
     const eventData = req.body;
     
-    console.log(`Updating event with ID: ${eventId}`);
-    
-    // Add the user ID to the event data
-    eventData.userId = userId;
-    
-    // Ensure selectedProviders exists
-    if (!eventData.selectedProviders) {
-      eventData.selectedProviders = [];
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
     
-    // Make sure the event belongs to this user
-    const existingEvent = await Event.findOne({ 
-      _id: eventId, 
-      userId 
-    });
-    
-    if (!existingEvent) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-    
-    // Remove any ID fields from the request body to prevent MongoDB errors
-    delete eventData._id;
-    delete eventData.id;
-    
-    // Update the event
-    const event = await Event.findByIdAndUpdate(
-      eventId,
-      eventData,
+    const event = await Event.findOneAndUpdate(
+      { _id: eventId, userId },
+      { $set: eventData },
       { new: true }
     );
     
-    console.log(`Successfully updated event with ID: ${eventId}`);
-    res.status(200).json(event);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
+    res.json(event);
   } catch (error) {
     console.error('Error updating event:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -215,58 +165,40 @@ router.put('/:id', authenticate, async (req, res) => {
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
+    const userId = req.user?.userId;
     const eventId = req.params.id;
     
-    // Make sure the event belongs to this user
-    const existingEvent = await Event.findOne({ 
-      _id: eventId, 
-      userId 
-    });
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
-    if (!existingEvent) {
+    const event = await Event.findOneAndDelete({ _id: eventId, userId });
+    
+    if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
     
-    // Delete the event
-    await Event.findByIdAndDelete(eventId);
-    
-    res.status(204).send();
+    res.json({ message: 'Event deleted successfully' });
   } catch (error) {
     console.error('Error deleting event:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Update event step
+// Update step of an event
 router.patch('/step', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
-    const { step, eventId } = req.body;
+    const userId = req.user?.userId;
+    const { eventId, step } = req.body;
     
-    if (!step) {
-      return res.status(400).json({ message: 'Step is required' });
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
     
-    let query = { userId };
-    
-    // If an event ID is provided, update that specific event
-    if (eventId) {
-      query._id = eventId;
-    } else {
-      // Otherwise, get the latest event
-      const latestEvent = await Event.findOne({ userId }).sort({ updatedAt: -1 });
-      if (!latestEvent) {
-        return res.status(404).json({ message: 'No events found' });
-      }
-      query._id = latestEvent._id;
-    }
-    
-    // Update the event step
     const event = await Event.findOneAndUpdate(
-      query,
-      { step },
+      { _id: eventId, userId },
+      { $set: { step } },
       { new: true }
     );
     
@@ -274,42 +206,27 @@ router.patch('/step', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
     
-    res.status(200).json(event);
+    res.json(event);
   } catch (error) {
     console.error('Error updating event step:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Update event category
+// Update active category of an event
 router.patch('/category', authenticate, async (req, res) => {
   try {
     await connectToDatabase();
-    const userId = req.user._id.toString();
-    const { activeCategory, eventId } = req.body;
+    const userId = req.user?.userId;
+    const { eventId, activeCategory } = req.body;
     
-    if (!activeCategory) {
-      return res.status(400).json({ message: 'Active category is required' });
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
     }
     
-    let query = { userId };
-    
-    // If an event ID is provided, update that specific event
-    if (eventId) {
-      query._id = eventId;
-    } else {
-      // Otherwise, get the latest event
-      const latestEvent = await Event.findOne({ userId }).sort({ updatedAt: -1 });
-      if (!latestEvent) {
-        return res.status(404).json({ message: 'No events found' });
-      }
-      query._id = latestEvent._id;
-    }
-    
-    // Update the event category
     const event = await Event.findOneAndUpdate(
-      query,
-      { activeCategory },
+      { _id: eventId, userId },
+      { $set: { activeCategory } },
       { new: true }
     );
     
@@ -317,7 +234,7 @@ router.patch('/category', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
     
-    res.status(200).json(event);
+    res.json(event);
   } catch (error) {
     console.error('Error updating event category:', error);
     res.status(500).json({ message: 'Server error' });
