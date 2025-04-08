@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 
 // Define the base URL for API calls
 const API_URL = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL ? 
-  process.env.NEXT_PUBLIC_API_URL : '/api';
+  process.env.NEXT_PUBLIC_API_URL : 'http://localhost:5001/api';
 
 console.log('Using API URL:', API_URL);
 
