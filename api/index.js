@@ -2,9 +2,12 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
 
-// Create a new Express app instead of importing the server directly
-// This avoids potential circular dependencies and initialization issues
+// Load environment variables
+dotenv.config();
+
+// Create a new Express app
 const app = express();
 
 // Basic middleware
@@ -12,10 +15,18 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'https://plannora.vercel.app',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Simple debug route
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Expanded debug route
 app.get('/api/debug', (req, res) => {
   try {
     res.status(200).json({
@@ -23,7 +34,9 @@ app.get('/api/debug', (req, res) => {
       env: process.env.NODE_ENV,
       hasMongoURI: !!process.env.MONGODB_URI,
       hasJwtSecret: !!process.env.JWT_SECRET,
-      corsOrigin: process.env.CORS_ORIGIN || 'not set'
+      corsOrigin: process.env.CORS_ORIGIN || 'not set',
+      headers: req.headers,
+      vercelRegion: process.env.VERCEL_REGION || 'not set'
     });
   } catch (error) {
     console.error('Debug endpoint error:', error);
@@ -31,25 +44,49 @@ app.get('/api/debug', (req, res) => {
   }
 });
 
-// Simple root endpoint
-app.get('/api', (req, res) => {
-  res.status(200).json({ message: 'API is running' });
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
 });
 
-// Minimal error handling
+// Simple root endpoint
+app.get('/api', (req, res) => {
+  res.status(200).json({ 
+    message: 'API is running',
+    env: process.env.NODE_ENV
+  });
+});
+
+// Handle CORS preflight requests
+app.options('*', cors());
+
+// Improved error handling
 app.use((err, req, res, next) => {
   console.error('API error:', err);
-  res.status(500).json({ 
+  
+  // Format error response based on type
+  const statusCode = err.statusCode || 500;
+  const errorMessage = err.message || 'A server error has occurred';
+  
+  res.status(statusCode).json({ 
     error: { 
-      code: '500', 
-      message: 'A server error has occurred'
+      code: statusCode.toString(), 
+      message: errorMessage,
+      path: req.path
     } 
   });
 });
 
 // Forward all other requests to the main server file
 app.all('*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint not found. API is running but this path does not exist.' });
+  res.status(404).json({ 
+    error: 'Endpoint not found. API is running but this path does not exist.',
+    path: req.path
+  });
 });
 
 // Export for Vercel serverless
