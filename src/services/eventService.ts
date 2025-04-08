@@ -208,38 +208,32 @@ export const updateEventById = async (eventId: string, event: Event, isAuthentic
   }
   
   ensureAuthToken();
+  
+  // Create a copy of the event without ID fields to prevent MongoDB errors
+  const eventToUpdate = { ...event };
+  delete eventToUpdate._id;
+  delete eventToUpdate.id;
+  
+  // Make sure numeric values are properly numbers
+  if (typeof eventToUpdate.guestCount === 'string') {
+    eventToUpdate.guestCount = parseInt(eventToUpdate.guestCount);
+  }
+  if (typeof eventToUpdate.budget === 'string') {
+    eventToUpdate.budget = parseFloat(eventToUpdate.budget);
+  }
+  
   try {
-    // Create a copy of the event without ID fields to prevent MongoDB errors
-    const eventToUpdate = { ...event };
-    delete eventToUpdate._id;
-    delete eventToUpdate.id;
-    
-    // Make sure numeric values are properly numbers
-    if (typeof eventToUpdate.guestCount === 'string') {
-      eventToUpdate.guestCount = parseInt(eventToUpdate.guestCount);
-    }
-    if (typeof eventToUpdate.budget === 'string') {
-      eventToUpdate.budget = parseFloat(eventToUpdate.budget);
-    }
-    
-    // Always use PUT for updates
+    // Send PUT request - the server will handle upsert if needed
     console.log(`Sending PUT request to update event ${eventId}`, eventToUpdate);
     const response = await axios.put(`${API_URL}/events/${eventId}`, eventToUpdate);
+    console.log('Update response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error(`Error updating event with ID ${eventId}:`, error);
     
-    // Save to localStorage for all errors as fallback
+    // Save to localStorage as fallback for all errors
     localStorage.setItem('event', JSON.stringify(event));
-    
-    // Only log the message for 404, but still save the event data
-    if (error.response && error.response.status === 404) {
-      console.log('Event not found, saving to localStorage and will create on next save');
-      // Return the event from localStorage rather than null to prevent data loss
-      return event;
-    }
-    
-    return event;  // Return event rather than null to maintain state
+    return event;
   }
 };
 

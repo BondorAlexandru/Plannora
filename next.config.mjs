@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  devIndicators: false,
   experimental: {
     // Enable any experimental features if needed
   },

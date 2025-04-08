@@ -258,11 +258,11 @@ export default function Create() {
         .updateEventById(id, eventToSave as Event, isAuthenticated)
         .then((updatedEvent) => {
           if (updatedEvent) {
-            console.log(`Successfully updated event: ${id}`);
+            console.log(`Successfully updated event: ${updatedEvent._id}`);
             
-            // If the update was successful but created a new event (the localStorage fallback case)
-            if (updatedEvent._id !== id && updatedEvent._id) {
-              console.log(`Server created new event with ID: ${updatedEvent._id}`);
+            // If the server returned a different ID than what we sent (unlikely)
+            if (updatedEvent._id && updatedEvent._id !== id) {
+              console.log(`Server returned different ID: ${updatedEvent._id}`);
               // Update state with the new ID
               setEvent(prev => ({
                 ...prev,
@@ -277,12 +277,11 @@ export default function Create() {
             
             return updatedEvent;
           } else {
-            // For null returns, create a new event without prompting
-            console.log(`Event with ID ${id} not found, creating new copy`);
+            console.error(`Update returned null result for event ${id}`);
             return createNewEvent();
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error(`Error updating event with ID ${id}:`, error);
           // Save to localStorage as fallback and continue without prompting
           localStorage.setItem('event', JSON.stringify(event));
