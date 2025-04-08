@@ -4,13 +4,8 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/auth/(.*)", "destination": "/api" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api" },
-    { "src": "/auth/(.*)", "dest": "/api" },
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "source": "/auth/(.*)", "destination": "/api" },
+    { "source": "/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 } 
