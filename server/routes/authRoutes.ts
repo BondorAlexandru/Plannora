@@ -2,6 +2,7 @@ import express from 'express';
 import User from '../models/User.js';
 import { generateToken, authenticate } from '../middleware/auth.js';
 import { connectToDatabase } from '../config/database.js';
+import { IUser } from '../models/types.js';
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ router.post('/register-direct', async (req, res) => {
       name,
       email,
       password,
-    });
+    }) as IUser;
     
     // Generate JWT token
     const token = generateToken(user._id.toString());
@@ -83,7 +84,7 @@ router.post('/register-direct', async (req, res) => {
       email: user.email,
       token
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Direct registration error:', error);
     return res.status(500).json({ message: 'Server error during registration' });
   }
@@ -113,7 +114,7 @@ router.post('/login', async (req, res) => {
     }
     
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }) as IUser;
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -150,7 +151,7 @@ router.post('/login', async (req, res) => {
       console.error('Password comparison error:', passwordError);
       return res.status(500).json({ message: 'Error validating credentials' });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
     // More detailed error logging for debugging
     console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
@@ -170,6 +171,10 @@ router.get('/profile', authenticate, async (req, res) => {
     
     const user = req.user;
     
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
     // Don't send the password in the response
     return res.status(200).json({
       _id: user._id,
@@ -177,7 +182,7 @@ router.get('/profile', authenticate, async (req, res) => {
       email: user.email,
       createdAt: user.createdAt
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Profile error:', error);
     return res.status(500).json({ message: 'Server error fetching profile' });
   }
@@ -214,7 +219,7 @@ router.post('/logout', async (req, res) => {
       message: 'Logged out successfully',
       clearLocalStorage: true
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Logout error:', error);
     return res.status(500).json({ message: 'Server error during logout' });
   }

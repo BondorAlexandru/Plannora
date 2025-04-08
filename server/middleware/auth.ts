@@ -2,12 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { connectToDatabase } from '../config/database.js';
+import { IUser } from '../models/types.js';
 
 // Extend Express Request type to include user property
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: IUser;
     }
   }
 }
@@ -37,7 +38,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
     
     // Find user
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id) as IUser;
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -45,7 +46,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Attach user to request
     req.user = user;
     next();
-  } catch (error) {
+  } catch (error: any) {
     console.error('Authentication error:', error);
     return res.status(401).json({ message: 'Invalid token' });
   }

@@ -10,14 +10,16 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": false,
+    "noEmit": true,
     "jsx": "react-jsx",
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["react", "react-dom"]
   },
-  "include": ["src/**/*", "server/**/*"],
+  "include": ["src/**/*", "server/**/*", "**/*.d.ts"],
   "exclude": ["node_modules"]
 } 
