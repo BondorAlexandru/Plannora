@@ -118,7 +118,7 @@ Plannora is a web application for event planning and management.
 - **Frontend**: React, TypeScript, Tailwind CSS, Vite
 - **Backend**: Node.js, Express, MongoDB, Mongoose
 - **Authentication**: JWT, bcrypt
-- **Deployment**: Netlify (Frontend + Serverless Functions)
+- **Deployment**: Vercel (Frontend + API Routes)
 
 ## Local Development
 
@@ -155,48 +155,47 @@ Plannora is a web application for event planning and management.
 
 5. Open your browser and navigate to `http://localhost:3209`
 
-## Deployment to Netlify
+## Deployment to Vercel
 
 ### Prerequisites
 
-- A Netlify account
+- A Vercel account
 - A MongoDB Atlas account (or your own MongoDB instance)
 
 ### Deployment Steps
 
 1. Push your code to a Git repository (GitHub, GitLab, or Bitbucket)
 
-2. Log in to your Netlify account and click "New site from Git"
+2. Log in to your Vercel account and click "New Project"
 
 3. Connect to your Git provider and select the repository
 
 4. Configure the build settings:
-   - **Build command**: `npm run netlify-build`
-   - **Publish directory**: `dist`
-   - **Functions directory**: `netlify/functions`
+   - **Build Command**: `npm run vercel-build`
+   - **Output Directory**: `dist`
+   - **Install Command**: `npm install`
 
-5. Add the following environment variables in the Netlify dashboard:
+5. Add the following environment variables in the Vercel dashboard:
    - `MONGODB_URI`: Your MongoDB connection string
    - `JWT_SECRET`: Your JWT secret key
    - `NODE_ENV`: Set to `production`
+   - `CORS_ORIGIN`: Set to your Vercel domain (e.g., `https://plannora.vercel.app`)
 
-6. Click "Deploy site"
+6. Click "Deploy"
 
 ### Environment Variables
 
-Make sure to set the following environment variables in your Netlify dashboard:
+Make sure to set the following environment variables in your Vercel dashboard:
 
 - `MONGODB_URI`: Your MongoDB connection string
 - `JWT_SECRET`: A secure random string for JWT token generation
 - `NODE_ENV`: Set to `production` for production deployment
+- `CORS_ORIGIN`: Set to your Vercel domain
 
 ## Project Structure
 
 ```
 plannora/
-├── netlify/
-│   └── functions/
-│       └── api.js         # Netlify serverless function
 ├── server/
 │   ├── config/
 │   │   └── database.ts    # Database configuration
@@ -216,7 +215,7 @@ plannora/
 │   └── utils/
 │       └── api.js         # API client
 ├── .env                   # Environment variables
-├── netlify.toml           # Netlify configuration
+├── vercel.json            # Vercel configuration
 ├── package.json           # Project dependencies
 └── vite.config.js         # Vite configuration
 ```

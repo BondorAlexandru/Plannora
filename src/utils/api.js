@@ -3,8 +3,8 @@ import axios from 'axios';
 // Determine the API base URL based on the environment
 const getApiBaseUrl = () => {
   if (process.env.NODE_ENV === 'production') {
-    // In production, use the Netlify Functions URL
-    return '/.netlify/functions/api';
+    // In production, use the Vercel API URL
+    return '/api';
   } else {
     // In development, use the local server
     return 'http://localhost:3000/api';
