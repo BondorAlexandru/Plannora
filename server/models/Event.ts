@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IUser } from './User';
+import { IEvent } from './types.js';
 
 // Interface for a selected provider/service
 interface SelectedProvider {
@@ -66,23 +66,30 @@ const selectedProviderSchema = new mongoose.Schema({
   }
 });
 
+// Define Event Schema
 const eventSchema = new mongoose.Schema<IEvent>({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  userId: {
+    type: String,
+    required: true,
+    index: true
   },
   name: {
     type: String,
-    default: ''
+    required: true,
+    trim: true
   },
   date: {
-    type: String,
-    default: () => new Date().toISOString().split('T')[0]
+    type: Date
   },
   location: {
+    type: String
+  },
+  description: {
+    type: String
+  },
+  eventType: {
     type: String,
-    default: ''
+    default: 'Party'
   },
   guestCount: {
     type: Number,
@@ -92,25 +99,27 @@ const eventSchema = new mongoose.Schema<IEvent>({
     type: Number,
     default: 0
   },
-  eventType: {
-    type: String,
-    default: 'Party'
-  },
   selectedProviders: {
-    type: [selectedProviderSchema],
+    type: Array,
     default: []
   },
-  activeCategory: {
-    type: String
+  categories: {
+    type: Array,
+    default: []
   },
   step: {
     type: Number,
     default: 1
+  },
+  activeCategory: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
 });
 
+// Event model
 const Event = mongoose.model<IEvent>('Event', eventSchema);
 
 export default Event; 

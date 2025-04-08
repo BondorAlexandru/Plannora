@@ -1,19 +1,12 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { IUser } from './types.js';
 
-export interface IUser extends mongoose.Document {
-  email: string;
-  password: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-  comparePassword(candidatePassword: string): Promise<boolean>;
-}
-
+// Define User Schema
 const userSchema = new mongoose.Schema<IUser>({
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: true,
     unique: true,
     trim: true,
     lowercase: true,
@@ -24,19 +17,19 @@ const userSchema = new mongoose.Schema<IUser>({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: true,
     minlength: [6, 'Password must be at least 6 characters long']
   },
   name: {
     type: String,
-    required: [true, 'Name is required'],
+    required: true,
     trim: true
   }
 }, {
   timestamps: true
 });
 
-// Hash the password before saving
+// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
@@ -44,16 +37,22 @@ userSchema.pre('save', async function(next) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
-  } catch (error: any) {
+  } catch (error) {
     next(error);
   }
 });
 
 // Method to compare password
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    throw error;
+  }
 };
 
+// User model
 const User = mongoose.model<IUser>('User', userSchema);
 
 export default User; 

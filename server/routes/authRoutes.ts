@@ -1,29 +1,54 @@
 import express from 'express';
-import { register, login, logout, getProfile } from '../controllers/authController.js';
-import { authenticate } from '../middleware/auth.js';
-import User, { IUser } from '../models/User.js';
-import mongoose from 'mongoose';
-import { generateToken } from '../middleware/auth.js';
+import User from '../models/User.js';
+import { generateToken, authenticate } from '../middleware/auth.js';
+import { connectToDatabase } from '../config/database.js';
 
 const router = express.Router();
 
-// Special debug route to help diagnose CORS issues
+// Options route for CORS preflight - register
 router.options('/register-direct', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3208');
+  const origin = process.env.NODE_ENV === 'production'
+    ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+      ? req.headers.origin : 'https://plannora.vercel.app')
+    : 'http://localhost:3209';
+    
+  res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.status(200).send();
 });
 
-// Create a more direct register route to bypass potential middleware issues
+// Options route for login CORS preflight
+router.options('/login', (req, res) => {
+  const origin = process.env.NODE_ENV === 'production'
+    ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+      ? req.headers.origin : 'https://plannora.vercel.app')
+    : 'http://localhost:3209';
+    
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Methods', 'POST');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).send();
+});
+
+// Register route
 router.post('/register-direct', async (req, res) => {
   try {
+    // Connect to MongoDB first
+    await connectToDatabase();
+    
     console.log('Direct register request received:', req.body);
     console.log('Request headers:', req.headers);
     
     // Set explicit CORS headers
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3208');
+    const origin = process.env.NODE_ENV === 'production'
+      ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+        ? req.headers.origin : 'https://plannora.vercel.app')
+      : 'http://localhost:3209';
+      
+    res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'POST');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -46,7 +71,7 @@ router.post('/register-direct', async (req, res) => {
       name,
       email,
       password,
-    }) as IUser & { _id: mongoose.Types.ObjectId };
+    });
     
     // Generate JWT token
     const token = generateToken(user._id.toString());
@@ -64,12 +89,135 @@ router.post('/register-direct', async (req, res) => {
   }
 });
 
-// Public routes
-router.post('/register', register);
-router.post('/login', login);
-router.post('/logout', logout);
+// Login route
+router.post('/login', async (req, res) => {
+  try {
+    // Connect to MongoDB first
+    await connectToDatabase();
+    
+    // Use environment variable for CORS
+    const origin = process.env.CORS_ORIGIN || 'https://plannora.vercel.app';
+      
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'POST');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    console.log('Login request received:', req.body);
+    
+    const { email, password } = req.body;
+    
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
+    }
+    
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    try {
+      // Check password
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Generate JWT token
+      const token = generateToken(user._id.toString());
+      
+      // Set token in cookie - with more compatible settings for Vercel
+      res.cookie('token', token, {
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: 'none',
+        secure: true,
+        path: '/'
+      });
+      
+      // Return user data (excluding password) 
+      // Also include token in the response body for client-side storage
+      return res.status(200).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        token
+      });
+    } catch (passwordError) {
+      console.error('Password comparison error:', passwordError);
+      return res.status(500).json({ message: 'Error validating credentials' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    // More detailed error logging for debugging
+    console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    return res.status(500).json({ 
+      message: 'Server error during login', 
+      error: error.message || 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
-// Protected routes
-router.get('/profile', authenticate, getProfile);
+// Get user profile route
+router.get('/profile', authenticate, async (req, res) => {
+  try {
+    // Connect to MongoDB first
+    await connectToDatabase();
+    
+    const user = req.user;
+    
+    // Don't send the password in the response
+    return res.status(200).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt
+    });
+  } catch (error) {
+    console.error('Profile error:', error);
+    return res.status(500).json({ message: 'Server error fetching profile' });
+  }
+});
+
+// Logout route
+router.post('/logout', async (req, res) => {
+  try {
+    // Connect to MongoDB first (in case we need to do any user-related operations)
+    await connectToDatabase();
+    
+    // Set explicit CORS headers for consistent handling
+    const origin = process.env.NODE_ENV === 'production'
+      ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+        ? req.headers.origin : 'https://plannora.vercel.app')
+      : 'http://localhost:3209';
+      
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'POST');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Clear the token cookie with comprehensive options
+    res.cookie('token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      expires: new Date(0), // Expire immediately
+      sameSite: 'none',
+      path: '/'
+    });
+    
+    // Also clear any localStorage token on the client side by informing it in response
+    return res.status(200).json({ 
+      message: 'Logged out successfully',
+      clearLocalStorage: true
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ message: 'Server error during logout' });
+  }
+});
 
 export default router; 
