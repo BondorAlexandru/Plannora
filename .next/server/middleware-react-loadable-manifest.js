@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST="{\"pages/create.tsx -> ../src/components/CreateWithRouter\":{\"id\":\"pages/create.tsx -> ../src/components/CreateWithRouter\",\"files\":[\"static/chunks/_pages-dir-browser_src_components_CreateWithRouter_tsx.js\"]}}"
