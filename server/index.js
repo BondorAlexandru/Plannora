@@ -163,26 +163,57 @@ const generateToken = (userId) => {
 
 // Connect to MongoDB
 let isConnected = false;
+let connectionPromise = null;
+
 async function connectToDatabase() {
   if (isConnected) {
     console.log('Using existing database connection');
     return;
   }
 
-  try {
-    console.log('Creating new database connection');
-    await mongoose.connect(MONGODB_URI, {
-      // These options help with connection management
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-    
-    isConnected = true;
-    console.log('MongoDB connected successfully');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    throw error; // Re-throw for proper error handling
+  // If there's a connection attempt in progress, wait for it
+  if (connectionPromise) {
+    console.log('Connection in progress, waiting...');
+    await connectionPromise;
+    return;
   }
+
+  // Create a new connection promise
+  connectionPromise = (async () => {
+    try {
+      console.log('Creating new database connection');
+      console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+      
+      // Ensure we have a MongoDB URI
+      const uri = process.env.MONGODB_URI;
+      if (!uri) {
+        throw new Error('MONGODB_URI environment variable is not defined');
+      }
+      
+      await mongoose.connect(uri, {
+        // Serverless-friendly options
+        serverSelectionTimeoutMS: 10000, // Increased timeout for server selection
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 10000,
+        maxPoolSize: 10, // Limit pool size for serverless
+        minPoolSize: 0,   // Allow all connections to close when idle
+      });
+      
+      isConnected = true;
+      console.log('MongoDB connected successfully');
+    } catch (error) {
+      console.error('MongoDB connection error:', error);
+      console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      // Reset for retry
+      isConnected = false;
+      throw error; // Re-throw for proper error handling
+    } finally {
+      connectionPromise = null;
+    }
+  })();
+
+  // Wait for the connection
+  await connectionPromise;
 }
 
 // Authentication middleware
@@ -308,11 +339,8 @@ app.post('/api/auth/login', async (req, res) => {
     // Connect to MongoDB first
     await connectToDatabase();
     
-    // Set explicit CORS headers for consistent handling
-    const origin = process.env.NODE_ENV === 'production'
-      ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
-        ? req.headers.origin : 'https://plannora.vercel.app')
-      : 'http://localhost:3209';
+    // Use environment variable for CORS
+    const origin = process.env.CORS_ORIGIN || 'https://plannora.vercel.app';
       
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'POST');
@@ -344,7 +372,7 @@ app.post('/api/auth/login', async (req, res) => {
       // Generate JWT token
       const token = generateToken(user._id.toString());
       
-      // Set token in cookie
+      // Set token in cookie - with more compatible settings for Vercel
       res.cookie('token', token, {
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
@@ -353,7 +381,8 @@ app.post('/api/auth/login', async (req, res) => {
         path: '/'
       });
       
-      // Return user data (excluding password)
+      // Return user data (excluding password) 
+      // Also include token in the response body for client-side storage
       return res.status(200).json({
         _id: user._id,
         name: user.name,
@@ -367,7 +396,13 @@ app.post('/api/auth/login', async (req, res) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login', error: error.message });
+    // More detailed error logging for debugging
+    console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    return res.status(500).json({ 
+      message: 'Server error during login', 
+      error: error.message || 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
