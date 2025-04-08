@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useRouter } from "next/router";
 import EventForm from "../components/EventForm";
 import { Event, SelectedProvider } from "../types";
 import { providers, ProviderCategory, Provider, Offer } from "../data/mockData";
@@ -12,27 +12,22 @@ import ServicesSelection from "../components/ServicesSelection";
 import EventComparison from "../components/EventComparison";
 import React from "react";
 
-// Component wrapper function that handles React version compatibility
-function compatibleComponent<P>(Component: any): React.FC<P> {
-  return Component as unknown as React.FC<P>;
-}
-
-// Create type-safe versions of our components
-const SafeEventStepSelector = compatibleComponent<{
+// Define typed props for components 
+type EventStepSelectorProps = {
   currentStep: number;
   onChange: (newStep: number) => void;
-}>(EventStepSelector);
+};
 
-const SafeEventsList = compatibleComponent<{
+type EventsListProps = {
   events: Event[];
   isLoading: boolean;
   onSelectEvent: (selectedEvent: Event) => void;
   onDeleteEvent: (eventId: string, eventName: string) => Promise<void>;
   onAddToComparison: (eventToAdd: Event) => void;
   selectedForComparison: { event1: Event | null; event2: Event | null };
-}>(EventsList);
+};
 
-const SafeServicesSelection = compatibleComponent<{
+type ServicesSelectionProps = {
   event: Event;
   providers: Provider[];
   activeCategory: ProviderCategory | null;
@@ -56,31 +51,31 @@ const SafeServicesSelection = compatibleComponent<{
     suggestion: string;
     minPrice: number;
   }[];
-}>(ServicesSelection);
+};
 
-const SafeProviderDetail = compatibleComponent<{
+type ProviderDetailProps = {
   provider: Provider;
   onClose: () => void;
   onSelectOffer: (provider: Provider, offer: Offer) => void;
   guestCount: number;
   isPerPerson: boolean;
   selectedOfferId?: string;
-}>(ProviderDetail);
+};
 
-const SafeEventComparison = compatibleComponent<{
+type EventComparisonProps = {
   event1: Event | null;
   event2: Event | null;
   onClose: () => void;
   onSelectEvent: (selectedEvent: Event) => void;
-}>(EventComparison);
+};
 
 export default function Create() {
-  const [searchParams] = useSearchParams();
-  const initialCategory = searchParams.get(
-    "category"
-  ) as ProviderCategory | null;
-  const eventId = searchParams.get("eventId");
-
+  const router = useRouter();
+  const { category, eventId, fresh } = router.query;
+  const initialCategory = typeof category === 'string' ? category as ProviderCategory : null;
+  const eventIdStr = typeof eventId === 'string' ? eventId : null;
+  const freshParam = fresh === 'true';
+  
   const [event, setEvent] = useState<Event>({
     name: "",
     date: new Date().toISOString().split("T")[0],
@@ -130,19 +125,26 @@ export default function Create() {
     });
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
-  const navigate = useNavigate();
-
   const { isAuthenticated, guestMode } = useAuth();
 
-  // Modify the useEffect for loading event by ID to better handle errors and prevent new event creation on refresh
+  // Replace router.push with options fixes
+  const navigateTo = (url: string, replace = false) => {
+    if (replace) {
+      router.replace(url);
+    } else {
+      router.push(url);
+    }
+  };
+
+  // Modify the useEffect for loading event by ID
   useEffect(() => {
     const loadEventById = async () => {
-      if (eventId && isAuthenticated) {
+      if (eventIdStr && isAuthenticated) {
         setIsLoadingEvent(true);
         setIsEditMode(true);
         try {
           const fetchedEvent = await eventService.getEventById(
-            eventId,
+            eventIdStr,
             isAuthenticated
           );
           if (fetchedEvent) {
@@ -150,8 +152,8 @@ export default function Create() {
             setEvent({
               ...fetchedEvent,
               // Ensure we have both id and _id for consistency
-              id: eventId,
-              _id: fetchedEvent._id || eventId,
+              id: eventIdStr,
+              _id: fetchedEvent._id || eventIdStr,
               selectedProviders: fetchedEvent.selectedProviders || [], // Ensure selectedProviders is an array
             });
 
@@ -181,16 +183,15 @@ export default function Create() {
     };
 
     loadEventById();
-  }, [eventId, isAuthenticated]);
+  }, [eventIdStr, isAuthenticated]);
 
   // Load saved event data if not in edit mode and no eventId
   useEffect(() => {
-    if (!eventId) {
+    if (!eventIdStr) {
       const loadData = async () => {
         try {
           // Check if we're in the process of creating a new event
-          const freshStart = searchParams.get("fresh") === "true";
-          const isFreshStart = freshStart || (
+          const isFreshStart = freshParam || (
             event.name === "" && 
             event.guestCount === 0 && 
             event.budget === 0 && 
@@ -228,11 +229,11 @@ export default function Create() {
 
       loadData();
     }
-  }, [isAuthenticated, guestMode, eventId, searchParams, event.name, event.guestCount, event.budget, event.selectedProviders.length]);
+  }, [isAuthenticated, guestMode, eventIdStr, freshParam, event.name, event.guestCount, event.budget, event.selectedProviders.length]);
 
   // Helper to determine if we have a valid event ID from the server
   const hasValidEventId = (): boolean => {
-    return !!(isEditMode && eventId);
+    return !!(isEditMode && eventIdStr);
   };
 
   // Helper function to save the current event state
@@ -240,19 +241,19 @@ export default function Create() {
     if (!event || isLoadingEvent) return Promise.resolve(event);
 
     // Check if this event already has an ID (either from URL or previously created)
-    const eventHasId = !!(eventId || event._id);
+    const eventHasId = !!(eventIdStr || event._id);
 
     const eventToSave = {
       ...event,
       // Keep existing IDs if we have them
-      _id: eventHasId ? event._id || eventId : undefined,
-      id: eventHasId ? event._id || eventId : undefined,
+      _id: eventHasId ? event._id || eventIdStr : undefined,
+      id: eventHasId ? event._id || eventIdStr : undefined,
     };
 
     // If the event has an ID and we're not forcing a POST, use PUT
     if (eventHasId && !forcePost) {
       // Use PUT for existing events
-      const id = String(event._id || eventId);
+      const id = String(event._id || eventIdStr);
       console.log(`Updating existing event with ID ${id} using PUT`);
       return eventService
         .updateEventById(id, eventToSave as Event, isAuthenticated)
@@ -272,7 +273,7 @@ export default function Create() {
               
               // Set edit mode and update URL
               setIsEditMode(true);
-              navigate(`/create?eventId=${updatedEvent._id}`, { replace: true });
+              navigateTo(`/create?eventId=${updatedEvent._id}`, true);
             }
             
             return updatedEvent;
@@ -317,7 +318,7 @@ export default function Create() {
 
           // Set edit mode and update URL
           setIsEditMode(true);
-          navigate(`/create?eventId=${newEvent._id}`, { replace: true });
+          navigateTo(`/create?eventId=${newEvent._id}`, true);
           
           return newEvent;
         }
@@ -337,7 +338,7 @@ export default function Create() {
     // Only save if event data has been loaded and we're not in an initial loading state
     if (event && !isLoadingEvent) {
       // Don't auto-save for brand new events without IDs - wait for step change to force POST
-      if (!eventId && !event._id) {
+      if (!eventIdStr && !event._id) {
         console.log(
           "Skipping auto-save for new event - waiting for step change"
         );
@@ -347,7 +348,7 @@ export default function Create() {
       // Debounce save to prevent too many requests
       const timeoutId = setTimeout(() => {
         // Only use PUT for updates and only if we're in edit mode
-        if (isEditMode && (event._id || eventId)) {
+        if (isEditMode && (event._id || eventIdStr)) {
           saveCurrentEvent(false); // Use the helper function to save
         } else if (!isEditMode) {
           // Just save to localStorage if not in edit mode
@@ -357,15 +358,15 @@ export default function Create() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [event, isLoadingEvent, eventId, isEditMode, isAuthenticated]);
+  }, [event, isLoadingEvent, eventIdStr, isEditMode, isAuthenticated]);
 
   // Modify the useEffect for saving steps to handle errors better
   useEffect(() => {
     if (!event || isLoadingEvent) return;
 
     // Only attempt to save the step to the server if we have an event ID
-    if (isEditMode && eventId && isAuthenticated) {
-      eventService.saveEventStep(step, isAuthenticated, guestMode, eventId)
+    if (isEditMode && eventIdStr && isAuthenticated) {
+      eventService.saveEventStep(step, isAuthenticated, guestMode, eventIdStr)
         .catch(error => {
           console.error('Error saving event step:', error);
           // Fallback to local storage
@@ -382,19 +383,19 @@ export default function Create() {
       // If no event ID or not authenticated, just use localStorage
       localStorage.setItem('eventStep', step.toString());
     }
-  }, [step, isAuthenticated, guestMode, isEditMode, eventId, event._id, isLoadingEvent]);
+  }, [step, isAuthenticated, guestMode, isEditMode, eventIdStr, event._id, isLoadingEvent]);
 
   // Modify the useEffect for saving active category to handle errors better
   useEffect(() => {
     if (!event || isLoadingEvent || !activeCategory) return;
 
     // Only attempt to save the category to the server if we have an event ID
-    if (isEditMode && eventId && isAuthenticated) {
+    if (isEditMode && eventIdStr && isAuthenticated) {
       eventService.saveActiveCategory(
         activeCategory,
         isAuthenticated,
         guestMode,
-        eventId
+        eventIdStr
       ).catch(error => {
         console.error('Error saving active category:', error);
         // Fallback to local storage
@@ -420,7 +421,7 @@ export default function Create() {
     isAuthenticated,
     guestMode,
     isEditMode,
-    eventId,
+    eventIdStr,
     event?._id,
     isLoadingEvent
   ]);
@@ -607,7 +608,7 @@ export default function Create() {
 
             // Set edit mode and update URL
             setIsEditMode(true);
-            navigate(`/create?eventId=${newEvent._id}`, { replace: true });
+            navigateTo(`/create?eventId=${newEvent._id}`, true);
 
             // Move to step 2 after a short delay
             setTimeout(() => {
@@ -923,28 +924,33 @@ export default function Create() {
     }
   }, [event.guestCount]);
 
+  // A cleaner preview submission function using Next.js routing
   const handleSubmit = () => {
     // Save the event first
     saveCurrentEvent(false)
       .then(savedEvent => {
         console.log("Event saved successfully, navigating to preview", savedEvent);
+        
         // Navigate to preview with or without an ID
         if (savedEvent && (savedEvent._id || event?._id)) {
           const id = savedEvent?._id || event?._id || '';
           console.log(`Navigating to preview with eventId=${id}`);
-          navigate(`/preview?eventId=${id}`);
+          router.push({
+            pathname: '/preview',
+            query: { eventId: id }
+          });
         } else {
           // Fallback to localStorage and basic preview
           console.log("No ID found, saving to localStorage and navigating to basic preview");
           localStorage.setItem('event', JSON.stringify(event));
-          navigate("/preview");
+          router.push('/preview');
         }
       })
       .catch(error => {
         console.error("Error saving event before preview:", error);
         // Still navigate but using localStorage as fallback
         localStorage.setItem('event', JSON.stringify(event));
-        navigate("/preview");
+        router.push('/preview');
       });
   };
 
@@ -994,7 +1000,7 @@ export default function Create() {
   const handleSelectEvent = (selectedEvent: Event) => {
     if (selectedEvent._id) {
       // Navigate to edit the selected event
-      navigate(`/create?eventId=${selectedEvent._id}`);
+      navigateTo(`/create?eventId=${selectedEvent._id}`);
     }
   };
 
@@ -1055,7 +1061,7 @@ export default function Create() {
     setIsEditMode(false);
     
     // Update URL to remove any eventId and add parameter to prevent auto-loading data
-    navigate("/create?fresh=true", { replace: true });
+    navigateTo("/create?fresh=true", true);
   };
 
   // Handle adding an event to comparison
@@ -1095,7 +1101,7 @@ export default function Create() {
   const handleSelectEventFromComparison = (selectedEvent: Event) => {
     if (selectedEvent._id) {
       // Navigate to edit the selected event
-      navigate(`/create?eventId=${selectedEvent._id}`);
+      navigateTo(`/create?eventId=${selectedEvent._id}`);
       setShowComparisonModal(false);
     }
   };
@@ -1129,7 +1135,7 @@ export default function Create() {
       </div>
 
       {/* Step Selector Component */}
-      <SafeEventStepSelector
+      <EventStepSelector
         currentStep={step}
         onChange={handleStepChange}
       />
@@ -1206,7 +1212,7 @@ export default function Create() {
                 </div>
               </div>
 
-              <SafeEventsList
+              <EventsList
                 events={userEvents}
                 isLoading={isLoadingEvents}
                 onSelectEvent={handleSelectEvent}
@@ -1218,7 +1224,7 @@ export default function Create() {
           )}
         </div>
       ) : (
-        <SafeServicesSelection
+        <ServicesSelection
           event={event}
           providers={providers}
           activeCategory={activeCategory}
@@ -1239,7 +1245,7 @@ export default function Create() {
 
       {/* Provider Detail Modal */}
       {selectedProvider && (
-        <SafeProviderDetail
+        <ProviderDetail
           provider={selectedProvider}
           onClose={handleCloseProviderDetail}
           onSelectOffer={handleSelectOffer}
@@ -1251,7 +1257,7 @@ export default function Create() {
 
       {/* Event Comparison Modal */}
       {showComparisonModal && (
-        <SafeEventComparison
+        <EventComparison
           event1={selectedEventsForComparison.event1}
           event2={selectedEventsForComparison.event2}
           onClose={() => setShowComparisonModal(false)}

@@ -508,7 +508,7 @@ export const providers: Provider[] = [
     description: 'Day-of coordination and partial planning services',
     price: 1800,
     rating: 4.7,
-    image: 'https://images.pexels.com/photos/7148415/pexels-photo-7148415.jpeg?auto=compress&cs=tinysrgb&w=600',
+    image: 'https://images.pexels.com/photos/587741/pexels-photo-587741.jpeg?auto=compress&cs=tinysrgb&w=600',
   },
   
   // Cakes
