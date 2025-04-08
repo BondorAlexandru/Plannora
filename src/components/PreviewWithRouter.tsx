@@ -9,11 +9,11 @@ const PreviewWithRouter = () => {
   // Previous versions of react-router-dom used the children prop directly
   // Use the JSX children pattern instead for compatibility
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <BrowserRouter children={
+      <AuthProvider children={
         <Preview />
-      </AuthProvider>
-    </BrowserRouter>
+      } />
+    } />
   );
 };
 
