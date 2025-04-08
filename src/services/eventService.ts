@@ -1,11 +1,28 @@
 import axios from 'axios';
 import { Event } from '../types';
 
-// Define the base URL for API calls - automatically works with Vercel
-const API_URL = '/api';
+// Define the base URL for API calls
+const API_URL = 'http://localhost:5001/api';
 
 // Configure axios defaults for cookies
 axios.defaults.withCredentials = true;
+
+// Helper function to ensure auth token is set
+const ensureAuthToken = () => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      return true;
+    }
+  }
+  return false;
+};
+
+// Helper to validate MongoDB ObjectId
+const isValidObjectId = (id: string): boolean => {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+};
 
 // Get all events from server (only works when authenticated)
 export const getAllEvents = async (isAuthenticated: boolean): Promise<Event[]> => {
@@ -13,6 +30,7 @@ export const getAllEvents = async (isAuthenticated: boolean): Promise<Event[]> =
     return [];
   }
   
+  ensureAuthToken();
   try {
     const response = await axios.get(`${API_URL}/events`);
     return response.data;
@@ -52,6 +70,83 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
   }
 };
 
+// Get event from server or create a new one if none exists
+export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean): Promise<Event | null> => {
+  if (!isAuthenticated || isGuestMode) {
+    const storedEvent = localStorage.getItem('event');
+    return storedEvent ? JSON.parse(storedEvent) : null;
+  }
+  
+  ensureAuthToken();
+  try {
+    // First try to get the current event
+    console.log('Attempting to get current event');
+    let currentEvent = null;
+    
+    try {
+      const currentResponse = await axios.get(`${API_URL}/events/current`);
+      if (currentResponse.data) {
+        console.log('Found current event:', currentResponse.data);
+        return currentResponse.data;
+      }
+    } catch (error: any) {
+      // If there's an error with current event, try getting all events
+      console.log('Error getting current event, will check all events instead:', error?.message);
+    }
+    
+    // Then try to get all events
+    const response = await axios.get(`${API_URL}/events`);
+    
+    // If we have events, return the first one
+    if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+      console.log('Found existing event:', response.data[0]);
+      return response.data[0];
+    } else {
+      // No events found, create a default one
+      console.log('No events found, creating a default event');
+      const defaultEvent: Event = {
+        name: 'New Event',
+        eventType: '',
+        date: '',
+        time: '',
+        location: '',
+        budget: 0,
+        guestCount: 0,
+        step: 1,
+        categories: {},
+        activeCategory: '',
+        selectedProviders: []
+      };
+      
+      return createNewEvent(defaultEvent, isAuthenticated);
+    }
+  } catch (error: any) {
+    console.error('Error fetching events:', error?.message);
+    return null;
+  }
+};
+
+// Save event step to server or localStorage
+export const saveEventStep = async (step: number, isAuthenticated: boolean, isGuestMode: boolean, eventId?: string): Promise<void> => {
+  if (isAuthenticated && !isGuestMode) {
+    // Save to server
+    ensureAuthToken();
+    try {
+      // Make sure we're sending the correct format the API expects
+      const payload = eventId ? { step: parseInt(step.toString()), eventId } : { step: parseInt(step.toString()) };
+      console.log('Sending step payload:', payload);
+      await axios.patch(`${API_URL}/events/step`, payload);
+    } catch (error) {
+      console.error('Error saving event step to server:', error);
+      // Fallback to localStorage
+      localStorage.setItem('eventStep', step.toString());
+    }
+  } else {
+    // Guest mode or not authenticated - save to localStorage only
+    localStorage.setItem('eventStep', step.toString());
+  }
+};
+
 // Create a new event on the server (first-time creation only)
 export const createNewEvent = async (event: Event, isAuthenticated: boolean): Promise<Event | null> => {
   if (!isAuthenticated) {
@@ -59,19 +154,33 @@ export const createNewEvent = async (event: Event, isAuthenticated: boolean): Pr
     return event;
   }
   
+  ensureAuthToken();
   try {
     // Remove any ID fields to ensure we create a new document
     const newEvent = { ...event };
     delete newEvent._id;
     delete newEvent.id;
     
+    // Make sure numeric values are actually numbers, not strings
+    if (typeof newEvent.guestCount === 'string') {
+      newEvent.guestCount = parseInt(newEvent.guestCount);
+    }
+    if (typeof newEvent.budget === 'string') {
+      newEvent.budget = parseFloat(newEvent.budget);
+    }
+    
+    console.log('Creating new event with data:', newEvent);
+    
     // Always use /events/new endpoint to ensure a new event is created
     // and not overwriting an existing one with the same name
     const response = await axios.post(`${API_URL}/events/new`, newEvent);
+    console.log('New event created response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error creating new event:', error);
-    return null;
+    // Still save to localStorage as a fallback
+    localStorage.setItem('event', JSON.stringify(event));
+    return event;
   }
 };
 
@@ -81,18 +190,42 @@ export const updateEventById = async (eventId: string, event: Event, isAuthentic
     return null;
   }
   
+  // Validate ObjectId format
+  if (!isValidObjectId(eventId)) {
+    console.error(`Invalid MongoDB ObjectId format: ${eventId}`);
+    
+    // Try to create a new event instead of updating
+    return createNewEvent(event, isAuthenticated);
+  }
+  
+  ensureAuthToken();
   try {
     // Create a copy of the event without ID fields to prevent MongoDB errors
     const eventToUpdate = { ...event };
     delete eventToUpdate._id;
     delete eventToUpdate.id;
     
+    // Make sure numeric values are properly numbers
+    if (typeof eventToUpdate.guestCount === 'string') {
+      eventToUpdate.guestCount = parseInt(eventToUpdate.guestCount);
+    }
+    if (typeof eventToUpdate.budget === 'string') {
+      eventToUpdate.budget = parseFloat(eventToUpdate.budget);
+    }
+    
     // Always use PUT for updates
-    console.log(`Sending PUT request to update event ${eventId}`);
+    console.log(`Sending PUT request to update event ${eventId}`, eventToUpdate);
     const response = await axios.put(`${API_URL}/events/${eventId}`, eventToUpdate);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error updating event with ID ${eventId}:`, error);
+    
+    // If we get a 404, the event might not exist - try to create it
+    if (error.response && error.response.status === 404) {
+      console.log('Event not found, creating a new one instead');
+      return createNewEvent(event, isAuthenticated);
+    }
+    
     return null;
   }
 };
@@ -159,50 +292,17 @@ export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestM
   }
 };
 
-// Get event from server or localStorage based on authentication status
-export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean): Promise<Event | null> => {
-  if (isAuthenticated && !isGuestMode) {
-    // Get from server
-    try {
-      const response = await axios.get(`${API_URL}/events/current`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching event from server:', error);
-      // Fallback to localStorage if API call fails
-      const storedEvent = localStorage.getItem('event');
-      return storedEvent ? JSON.parse(storedEvent) : null;
-    }
-  } else {
-    // Guest mode or not authenticated - get from localStorage only
-    const storedEvent = localStorage.getItem('event');
-    return storedEvent ? JSON.parse(storedEvent) : null;
-  }
-};
-
-// Save event step to server or localStorage
-export const saveEventStep = async (step: number, isAuthenticated: boolean, isGuestMode: boolean, eventId?: string): Promise<void> => {
-  if (isAuthenticated && !isGuestMode) {
-    // Save to server
-    try {
-      const payload = eventId ? { step, eventId } : { step };
-      await axios.patch(`${API_URL}/events/step`, payload);
-    } catch (error) {
-      console.error('Error saving event step to server:', error);
-      // Fallback to localStorage
-      localStorage.setItem('eventStep', step.toString());
-    }
-  } else {
-    // Guest mode or not authenticated - save to localStorage only
-    localStorage.setItem('eventStep', step.toString());
-  }
-};
-
 // Save active category to server or localStorage
 export const saveActiveCategory = async (category: string, isAuthenticated: boolean, isGuestMode: boolean, eventId?: string): Promise<void> => {
   if (isAuthenticated && !isGuestMode) {
     // Save to server
+    ensureAuthToken();
     try {
-      const payload = eventId ? { activeCategory: category, eventId } : { activeCategory: category };
+      // Ensure correct payload format
+      const payload = eventId 
+        ? { activeCategory: category, eventId: eventId.toString() } 
+        : { activeCategory: category };
+      console.log('Sending category payload:', payload);
       await axios.patch(`${API_URL}/events/category`, payload);
     } catch (error) {
       console.error('Error saving active category to server:', error);

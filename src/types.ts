@@ -5,6 +5,7 @@ export interface Event {
   _id?: string;
   name: string;
   date: string;
+  time?: string;
   location: string;
   description?: string;
   guestCount: number;
@@ -13,6 +14,7 @@ export interface Event {
   selectedProviders: SelectedProvider[];
   step?: number;
   activeCategory?: string;
+  categories?: Record<string, any>;
 }
 
 export interface SelectedProvider {

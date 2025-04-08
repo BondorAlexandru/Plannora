@@ -2,8 +2,35 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Event, SelectedProvider } from "../types";
 import { providers } from "../data/mockData";
-import html2pdf from "html2pdf.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import eventService from '../services/eventService';
+import { useAuth } from '../contexts/AuthContext';
+
+// Import html2pdf dynamically to avoid SSR issues
+const handleExportPDF = async (event: Event | null) => {
+  try {
+    // Dynamically import html2pdf
+    const html2pdf = (await import('html2pdf.js')).default;
+    
+    const element = document.getElementById("quote-content");
+    const opt = {
+      margin: 10,
+      filename: `${event?.name || "Event"}_Quote.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as "portrait" | "landscape" },
+    };
+
+    if (element) {
+      html2pdf().set(opt).from(element).save();
+    } else {
+      console.error("Quote content element not found");
+    }
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    alert("There was an error generating the PDF. Please try again.");
+  }
+};
 
 const Preview = () => {
   const [event, setEvent] = useState<Event | null>(null);
@@ -16,25 +43,52 @@ const Preview = () => {
   const [sampleMode, setSampleMode] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedEvent = localStorage.getItem('event');
+    const loadEvent = async () => {
+      setIsLoading(true);
+      const eventId = searchParams.get('eventId');
+      
+      if (eventId && isAuthenticated) {
+        // If we have an event ID in the URL and user is authenticated, load from API
+        try {
+          const fetchedEvent = await eventService.getEventById(eventId, isAuthenticated);
+          if (fetchedEvent) {
+            setEvent(fetchedEvent);
+            setSampleMode(false);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Error loading event by ID:", error);
+        }
+      }
+      
+      // Fallback to localStorage
+      const savedEvent = localStorage.getItem('event');
+      if (savedEvent) {
+        setEvent(JSON.parse(savedEvent));
+        setSampleMode(false);
+      } else {
+        // If no event data, create sample data for demo purposes
+        setSampleMode(true);
+        setEvent({
+          name: 'Sample Event',
+          date: new Date().toISOString().split('T')[0],
+          location: 'Sample Location',
+          guestCount: 50,
+          budget: 5000,
+          eventType: 'Party',
+          selectedProviders: []
+        });
+      }
+      setIsLoading(false);
+    };
     
-    if (savedEvent) {
-      setEvent(JSON.parse(savedEvent));
-    } else {
-      // If no event data, create sample data for demo purposes
-      setSampleMode(true);
-      setEvent({
-        name: 'Sample Event',
-        date: new Date().toISOString().split('T')[0],
-        location: 'Sample Location',
-        guestCount: 50,
-        budget: 5000,
-        eventType: 'Party',
-        selectedProviders: []
-      });
-    }
+    loadEvent();
     
     // Show optimization tips after a delay for better UX
     const timer = setTimeout(() => {
@@ -42,7 +96,7 @@ const Preview = () => {
     }, 500);
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [searchParams, isAuthenticated]);
 
   // Generate budget optimization suggestions when event changes or when over budget
   useEffect(() => {
@@ -102,27 +156,6 @@ const Preview = () => {
   const isOverBudget = event && calculateTotal() > (event.budget || 0);
   const overBudgetAmount = event ? calculateTotal() - (event.budget || 0) : 0;
 
-  const handleExportPDF = () => {
-    const element = document.getElementById("quote-content");
-    const opt: {
-      margin: number;
-      filename: string;
-      image: { type: string; quality: number };
-      html2canvas: { scale: number };
-      jsPDF: { unit: string; format: string; orientation: "portrait" | "landscape" };
-    } = {
-      margin: 10,
-      filename: `${event?.name || "Event"}_Quote.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    };
-
-    if (element) {
-      html2pdf().set(opt).from(element).save();
-    }
-  };
-  
   // Replace a selected provider with a suggested alternative
   const handleReplaceProvider = (originalId: string, newProvider: typeof providers[0]) => {
     if (!event) return;
@@ -503,7 +536,7 @@ const Preview = () => {
       {event && event.selectedProviders.length > 0 && (
         <div className="flex flex-col md:flex-row gap-4">
           <button
-            onClick={handleExportPDF}
+            onClick={() => handleExportPDF(event)}
             className="flex-1 py-3 px-4 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg font-heading text-lg shadow-md flex items-center justify-center"
           >
             <svg

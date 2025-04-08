@@ -842,8 +842,17 @@ export default function Create() {
   }, [event.guestCount]);
 
   const handleSubmit = () => {
-    localStorage.setItem("event", JSON.stringify(event));
-    navigate("/preview");
+    // First save the current event if it's not already saved
+    if (!event._id) {
+      saveCurrentEvent(true);
+      // Short delay to let the save complete
+      setTimeout(() => {
+        navigate("/preview");
+      }, 300);
+    } else {
+      // For already saved events, just navigate to preview
+      navigate(`/preview?eventId=${event._id}`);
+    }
   };
 
   const calculateTotal = () => {
