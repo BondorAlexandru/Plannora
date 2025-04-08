@@ -5,10 +5,10 @@ interface EventStepSelectorProps {
   onChange: (step: number) => void;
 }
 
-const EventStepSelector: React.FC<EventStepSelectorProps> = ({ 
-  currentStep, 
-  onChange 
-}) => {
+function EventStepSelector({
+  currentStep,
+  onChange
+}: EventStepSelectorProps) {
   return (
     <div className="mb-10">
       <div className="flex justify-center mb-4">

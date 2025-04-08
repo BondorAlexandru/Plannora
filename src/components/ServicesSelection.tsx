@@ -28,7 +28,7 @@ interface ServicesSelectionProps {
   }[];
 }
 
-const ServicesSelection: React.FC<ServicesSelectionProps> = ({
+function ServicesSelection({
   event,
   providers,
   activeCategory,
@@ -44,7 +44,7 @@ const ServicesSelection: React.FC<ServicesSelectionProps> = ({
   budgetImpact,
   showBudgetAlert,
   budgetSuggestions
-}) => {
+}: ServicesSelectionProps) {
   const handleSetActiveCategory = (category: ProviderCategory) => {
     setActiveCategory(category);
 
@@ -353,7 +353,7 @@ const ServicesSelection: React.FC<ServicesSelectionProps> = ({
                             )}
                             {hasOffers && (
                               <button
-                                onClick={(e) => {
+                                onClick={(e: any) => {
                                   e.stopPropagation();
                                   handleViewProviderDetail(provider);
                                 }}

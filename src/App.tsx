@@ -14,11 +14,13 @@ const ProtectedRoute = dynamic(() => import('./components/ProtectedRoute'), { ss
 
 // Use a simple function for type compatibility
 export default function App() {
+  const content = (
+    <div className="app-container">
+      This is the App component. Please use the Next.js pages directly from the pages directory.
+    </div>
+  );
+  
   return (
-    <AuthProvider children={
-      <div className="app-container">
-        This is the App component. Please use the Next.js pages directly from the pages directory.
-      </div>
-    } />
+    <AuthProvider children={content} />
   );
 }; 

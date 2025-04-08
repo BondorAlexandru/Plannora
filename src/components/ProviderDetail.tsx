@@ -10,14 +10,14 @@ interface ProviderDetailProps {
   selectedOfferId?: string;
 }
 
-const ProviderDetail: React.FC<ProviderDetailProps> = ({ 
-  provider, 
-  onClose, 
+function ProviderDetail({
+  provider,
+  onClose,
   onSelectOffer,
   guestCount,
   isPerPerson,
   selectedOfferId
-}) => {
+}: ProviderDetailProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedTab, setSelectedTab] = useState<'about' | 'offers' | 'gallery'>('about');
   

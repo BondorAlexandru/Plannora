@@ -12,7 +12,7 @@ interface SelectedProvidersListProps {
   event: { budget: number; guestCount: number };
 }
 
-const SelectedProvidersList: React.FC<SelectedProvidersListProps> = ({
+function SelectedProvidersList({
   selectedProviders,
   handleSelectProvider,
   handleViewProviderDetail,
@@ -20,7 +20,7 @@ const SelectedProvidersList: React.FC<SelectedProvidersListProps> = ({
   providers,
   budgetRemaining,
   event
-}) => {
+}: SelectedProvidersListProps) {
   if (selectedProviders.length === 0) {
     return (
       <div className="bg-white rounded-lg p-6 text-center">
@@ -82,7 +82,7 @@ const SelectedProvidersList: React.FC<SelectedProvidersListProps> = ({
                   {event.budget > 0 &&
                     provider.price > budgetRemaining / 5 && (
                       <button
-                        onClick={(e) => {
+                        onClick={(e: any) => {
                           e.stopPropagation();
                           showAffordableAlternatives(provider);
                         }}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Event } from '../types';
+import { format } from 'date-fns';
 
 interface EventsListProps {
   events: Event[];
@@ -10,14 +11,14 @@ interface EventsListProps {
   selectedForComparison?: {event1: Event | null, event2: Event | null};
 }
 
-const EventsList: React.FC<EventsListProps> = ({
+function EventsList({
   events,
   isLoading,
   onSelectEvent,
   onDeleteEvent,
   onAddToComparison,
   selectedForComparison
-}) => {
+}: EventsListProps) {
   const isSelected = (event: Event): boolean => {
     if (!selectedForComparison) return false;
     
@@ -82,7 +83,7 @@ const EventsList: React.FC<EventsListProps> = ({
               {onAddToComparison && (
                 <button
                   className={`px-3 py-1 ${isSelected(userEvent) ? 'bg-primary-400 hover:bg-primary-500' : 'bg-gray-200 hover:bg-gray-300'} text-gray-700 rounded-lg transition-colors shadow-sm text-sm`}
-                  onClick={(e) => {
+                  onClick={(e: any) => {
                     e.stopPropagation();
                     onAddToComparison(userEvent);
                   }}
@@ -92,7 +93,7 @@ const EventsList: React.FC<EventsListProps> = ({
               )}
               <button
                 className="px-3 py-1 bg-secondary-500 hover:bg-secondary-600 text-white rounded-lg transition-colors shadow-sm text-sm"
-                onClick={(e) => {
+                onClick={(e: any) => {
                   e.stopPropagation();
                   onSelectEvent(userEvent);
                 }}
@@ -101,7 +102,7 @@ const EventsList: React.FC<EventsListProps> = ({
               </button>
               <button
                 className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors shadow-sm text-sm"
-                onClick={(e) => {
+                onClick={(e: any) => {
                   e.stopPropagation();
                   onDeleteEvent(userEvent._id || userEvent.id || '', userEvent.name);
                 }}

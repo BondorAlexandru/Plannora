@@ -8,12 +8,12 @@ type EventComparisonProps = {
   onSelectEvent: (event: Event) => void;
 };
 
-const EventComparison: React.FC<EventComparisonProps> = ({ 
-  event1, 
-  event2, 
-  onClose, 
-  onSelectEvent 
-}) => {
+function EventComparison({
+  event1,
+  event2,
+  onClose,
+  onSelectEvent
+}: EventComparisonProps) {
   // Function to calculate total cost of event
   const calculateTotal = (event: Event | null) => {
     if (!event || !event.selectedProviders) return 0;
