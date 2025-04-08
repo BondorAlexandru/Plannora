@@ -104,93 +104,60 @@ This project is configured for easy deployment on Vercel. Simply connect your Gi
 
 # Plannora
 
-Plannora is a web application for event planning and management.
+Event planning application with Vercel-ready API.
 
-## Features
+## Development
 
-- User authentication (register, login, profile management)
-- Event creation and management
-- Step-by-step event planning process
-- Category-based organization of event details
+To run the application locally:
 
-## Tech Stack
+```bash
+# Install dependencies
+npm install
 
-- **Frontend**: React, TypeScript, Tailwind CSS, Vite
-- **Backend**: Node.js, Express, MongoDB, Mongoose
-- **Authentication**: JWT, bcrypt
-- **Deployment**: Vercel (Frontend + API Routes)
-
-## Local Development
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- npm or yarn
-- MongoDB (local or Atlas)
-
-### Setup
-
-1. Clone the repository
-   ```
-   git clone https://github.com/yourusername/plannora.git
-   cd plannora
-   ```
-
-2. Install dependencies
-   ```
-   npm install
-   ```
-
-3. Create a `.env` file in the root directory with the following variables:
-   ```
-   MONGODB_URI=your_mongodb_connection_string
-   JWT_SECRET=your_jwt_secret
-   NODE_ENV=development
-   ```
-
-4. Start the development server
-   ```
-   npm run dev
-   ```
-
-5. Open your browser and navigate to `http://localhost:3209`
+# Start development server (client + API)
+npm run dev
+```
 
 ## Deployment to Vercel
 
-### Prerequisites
+The project is configured to deploy both the frontend and API to Vercel:
 
-- A Vercel account
-- A MongoDB Atlas account (or your own MongoDB instance)
-
-### Deployment Steps
-
-1. Push your code to a Git repository (GitHub, GitLab, or Bitbucket)
-
-2. Log in to your Vercel account and click "New Project"
-
-3. Connect to your Git provider and select the repository
-
-4. Configure the build settings:
-   - **Build Command**: `npm run vercel-build`
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
-
-5. Add the following environment variables in the Vercel dashboard:
+1. Connect your GitHub repository to Vercel
+2. Set the following environment variables in Vercel:
    - `MONGODB_URI`: Your MongoDB connection string
-   - `JWT_SECRET`: Your JWT secret key
-   - `NODE_ENV`: Set to `production`
-   - `CORS_ORIGIN`: Set to your Vercel domain (e.g., `https://plannora.vercel.app`)
+   - `JWT_SECRET`: Secret for JWT token generation
+   - `NODE_ENV`: Set to "production"
 
-6. Click "Deploy"
+3. Deploy with the following settings:
+   - Build Command: `npm run vercel-build`
+   - Output Directory: `dist`
+   - Install Command: `npm install`
 
-### Environment Variables
+## API Routes
 
-Make sure to set the following environment variables in your Vercel dashboard:
+The API implements the following endpoints:
 
-- `MONGODB_URI`: Your MongoDB connection string
-- `JWT_SECRET`: A secure random string for JWT token generation
-- `NODE_ENV`: Set to `production` for production deployment
-- `CORS_ORIGIN`: Set to your Vercel domain
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `GET /api/auth/profile` - Get current user profile
+- `POST /api/auth/logout` - User logout
+
+### Events
+- `GET /api/events` - Get all events for current user
+- `GET /api/events/:id` - Get a specific event by ID
+- `POST /api/events/new` - Create a new event
+- `PUT /api/events/:id` - Update an event by ID
+- `DELETE /api/events/:id` - Delete an event by ID
+- `PATCH /api/events/step` - Update event step
+- `PATCH /api/events/category` - Update event category
+
+## Tech Stack
+
+- Frontend: React with Vite
+- API: Express.js with serverless functions
+- Database: MongoDB
+- Deployment: Vercel
 
 ## Project Structure
 

@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { Event } from '../types';
 
-// Define the base URL for API calls
+// Define the base URL for API calls - automatically works with Vercel
 const API_URL = '/api';
+
+// Configure axios defaults for cookies
+axios.defaults.withCredentials = true;
 
 // Get all events from server (only works when authenticated)
 export const getAllEvents = async (isAuthenticated: boolean): Promise<Event[]> => {

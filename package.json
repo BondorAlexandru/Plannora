@@ -5,13 +5,12 @@
   "type": "module",
   "scripts": {
     "dev:client": "vite --port 3209",
-    "dev:server": "node server/index.js",
+    "dev:server": "node api/index.js",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build": "vite build",
-    "build:server": "tsc --skipLibCheck --project tsconfig.server.json && cp server/index.js dist/server/",
-    "vercel-build": "cp .env.production .env && npm run build && npm run build:server",
-    "postinstall": "npx vite build",
-    "start": "node dist/server/index.js",
+    "vercel-build": "cp .env.production .env && npm run build",
+    "postinstall": "npm run build",
+    "start": "node api/index.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
