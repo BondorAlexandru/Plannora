@@ -9,7 +9,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build": "vite build",
     "build:server": "npx tsc --project tsconfig.server.json",
-    "vercel-build": "npm install && echo 'Skipping TypeScript check' && npx vite build",
+    "vercel-build": "npm install && npx vite build && mkdir -p dist/api && cp -r server/* dist/api/",
     "postinstall": "npx vite build",
     "start": "node dist/server/server.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

@@ -130,7 +130,9 @@ const Event = mongoose.model('Event', eventSchema);
 
 // Setup CORS first (before other middleware)
 app.use(cors({
-  origin: 'http://localhost:3209',
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://plannora.vercel.app', 'https://www.plannora.com'] 
+    : 'http://localhost:3209',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
@@ -194,7 +196,12 @@ app.get('/api/health', (req, res) => {
 
 // Options route for CORS preflight
 app.options('/api/auth/register-direct', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
+  const origin = process.env.NODE_ENV === 'production'
+    ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+      ? req.headers.origin : 'https://plannora.vercel.app')
+    : 'http://localhost:3209';
+    
+  res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -203,7 +210,12 @@ app.options('/api/auth/register-direct', (req, res) => {
 
 // Options route for login CORS preflight
 app.options('/api/auth/login', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
+  const origin = process.env.NODE_ENV === 'production'
+    ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+      ? req.headers.origin : 'https://plannora.vercel.app')
+    : 'http://localhost:3209';
+    
+  res.header('Access-Control-Allow-Origin', origin);
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -217,7 +229,12 @@ app.post('/api/auth/register-direct', async (req, res) => {
     console.log('Request headers:', req.headers);
     
     // Set explicit CORS headers
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
+    const origin = process.env.NODE_ENV === 'production'
+      ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+        ? req.headers.origin : 'https://plannora.vercel.app')
+      : 'http://localhost:3209';
+      
+    res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'POST');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -262,7 +279,12 @@ app.post('/api/auth/register-direct', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     // Set explicit CORS headers
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
+    const origin = process.env.NODE_ENV === 'production'
+      ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
+        ? req.headers.origin : 'https://plannora.vercel.app')
+      : 'http://localhost:3209';
+      
+    res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'POST');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -669,6 +691,23 @@ app.patch('/api/events/category', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  // Get the directory of the current module
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  
+  // Serve static files from the dist directory (one level up from /api)
+  const distPath = path.resolve(__dirname, '..');
+  app.use(express.static(distPath));
+  
+  // Handle client-side routing - return the index.html for any path except /api
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    }
+  });
+}
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI)

@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
 // Define the base URL for API calls
-const API_URL = '/api';
+const API_URL = import.meta.env.PROD ? '' : '/api';
 
 // Define User type
 interface User {
@@ -209,5 +209,5 @@ export const useAuth = (): AuthContextType => {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  return context as AuthContextType;
 }; 
