@@ -1,0 +1,11 @@
+{
+  "projectId": "plannora",
+  "orgId": "personal",
+  "settings": {
+    "framework": "vite",
+    "devCommand": "npm run dev",
+    "buildCommand": "npm run vercel-build",
+    "outputDirectory": "dist",
+    "rootDirectory": "."
+  }
+} 

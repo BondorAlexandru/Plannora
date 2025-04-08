@@ -1,3 +1,5 @@
+// This file is intended to be the entry point for the server
+// Import and use your server modules here
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -6,18 +8,20 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
+import { connectToDatabase } from './config/database.js';
 
 // Load environment variables
 dotenv.config();
 
 // ES Module equivalent for __dirname
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 // Initialize Express
 const app = express();
@@ -119,13 +123,25 @@ const eventSchema = new mongoose.Schema({
 // Event model
 const Event = mongoose.model('Event', eventSchema);
 
+// CORS setup with options
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? [/\.vercel\.app$/, /\.plannora\.com$/] 
+    : 'http://localhost:3209',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400
+};
+
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'https://plannora.vercel.app',
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+// Static file serving
+const staticPath = join(__dirname, '../../');
+app.use(express.static(staticPath));
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -136,11 +152,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Start server
-if (process.env.NODE_ENV !== 'production') {
+// Connect to database and start server
+connectToDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-}
+}).catch(err => {
+  console.error('Database connection failed:', err);
+  process.exit(1);
+});
 
 export default app; 
