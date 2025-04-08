@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev:client": "vite",
+    "dev:client": "vite --port 3209",
     "dev:server": "node server/server.js",
-    "dev": "vite",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build": "vite build",
     "build:server": "npx tsc --project tsconfig.server.json",
     "vercel-build": "npm install && echo 'Skipping TypeScript check' && npx vite build",

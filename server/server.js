@@ -4,6 +4,16 @@ import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// ES Module equivalent for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize Express
 const app = express();
@@ -12,7 +22,7 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // MongoDB connection
-const MONGODB_URI = 'mongodb+srv://alex:Bicrlafs1997@plannora.wac0bxz.mongodb.net/?retryWrites=true&w=majority&appName=Plannora';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://alex:Bicrlafs1997@plannora.wac0bxz.mongodb.net/?retryWrites=true&w=majority&appName=Plannora';
 
 // Define User Schema
 const userSchema = new mongoose.Schema({
@@ -48,6 +58,16 @@ userSchema.pre('save', async function(next) {
     next(error);
   }
 });
+
+// Method to compare password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    throw error;
+  }
+};
 
 // User model
 const User = mongoose.model('User', userSchema);
@@ -110,7 +130,7 @@ const Event = mongoose.model('Event', eventSchema);
 
 // Setup CORS first (before other middleware)
 app.use(cors({
-  origin: 'http://localhost:3206',
+  origin: 'http://localhost:3209',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
@@ -132,7 +152,7 @@ app.use((req, res, next) => {
 });
 
 // JWT Secret
-const JWT_SECRET = 'plannora-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'plannora-secret-key-for-jwt-auth';
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -174,7 +194,16 @@ app.get('/api/health', (req, res) => {
 
 // Options route for CORS preflight
 app.options('/api/auth/register-direct', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3206');
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
+  res.header('Access-Control-Allow-Methods', 'POST');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(200).send();
+});
+
+// Options route for login CORS preflight
+app.options('/api/auth/login', (req, res) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -188,7 +217,7 @@ app.post('/api/auth/register-direct', async (req, res) => {
     console.log('Request headers:', req.headers);
     
     // Set explicit CORS headers
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3206');
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
     res.header('Access-Control-Allow-Methods', 'POST');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -232,6 +261,12 @@ app.post('/api/auth/register-direct', async (req, res) => {
 // Login route
 app.post('/api/auth/login', async (req, res) => {
   try {
+    // Set explicit CORS headers
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3209');
+    res.header('Access-Control-Allow-Methods', 'POST');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     console.log('Login request received:', req.body);
     
     const { email, password } = req.body;
@@ -247,34 +282,39 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
     
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    try {
+      // Check password
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Generate JWT token
+      const token = generateToken(user._id.toString());
+      
+      // Set token in cookie
+      res.cookie('token', token, {
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+      });
+      
+      // Return user data (excluding password)
+      return res.status(200).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        token
+      });
+    } catch (passwordError) {
+      console.error('Password comparison error:', passwordError);
+      return res.status(500).json({ message: 'Error validating credentials' });
     }
-    
-    // Generate JWT token
-    const token = generateToken(user._id.toString());
-    
-    // Set token in cookie
-    res.cookie('token', token, {
-      httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
-    
-    // Return user data (excluding password)
-    return res.status(200).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      createdAt: user.createdAt,
-      token
-    });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login' });
+    return res.status(500).json({ message: 'Server error during login', error: error.message });
   }
 });
 

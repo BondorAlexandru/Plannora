@@ -9,7 +9,7 @@ const router = express.Router();
 
 // Special debug route to help diagnose CORS issues
 router.options('/register-direct', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3206');
+  res.header('Access-Control-Allow-Origin', 'http://localhost:3208');
   res.header('Access-Control-Allow-Methods', 'POST');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -23,7 +23,7 @@ router.post('/register-direct', async (req, res) => {
     console.log('Request headers:', req.headers);
     
     // Set explicit CORS headers
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3206');
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3208');
     res.header('Access-Control-Allow-Methods', 'POST');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
