@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { Event, SelectedProvider } from "../types";
 import { providers } from "../data/mockData";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useRouter } from "next/router";
 import eventService from '../services/eventService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -42,8 +42,7 @@ function Preview() {
   }[]>([]);
   const [sampleMode, setSampleMode] = useState(false);
   const [showTips, setShowTips] = useState(false);
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,21 +51,22 @@ function Preview() {
     const loadEvent = async () => {
       setIsLoading(true);
       setError(null);
-      const eventId = searchParams.get('eventId');
+      const { eventId } = router.query;
+      const eventIdString = typeof eventId === 'string' ? eventId : Array.isArray(eventId) ? eventId[0] : null;
       
       // First try localStorage in all cases
       const savedEvent = localStorage.getItem('event');
       let localEvent = savedEvent ? JSON.parse(savedEvent) : null;
       
       // Try to load from API with eventId if provided (regardless of auth state)
-      if (eventId) {
+      if (eventIdString) {
         try {
-          console.log(`Attempting to load event with ID: ${eventId}`);
+          console.log(`Attempting to load event with ID: ${eventIdString}`);
           // Try with auth if authenticated, but allow fallback to no auth
-          const fetchedEvent = await eventService.getEventById(eventId, isAuthenticated);
+          const fetchedEvent = await eventService.getEventById(eventIdString, isAuthenticated);
           
           if (fetchedEvent) {
-            console.log(`Successfully loaded event from API: ${eventId}`);
+            console.log(`Successfully loaded event from API: ${eventIdString}`);
             setEvent(fetchedEvent);
             
             // Store in localStorage for offline/cross-context access
@@ -77,7 +77,7 @@ function Preview() {
             return;
           }
         } catch (error) {
-          console.error(`Error loading event ${eventId} from API:`, error);
+          console.error(`Error loading event ${eventIdString} from API:`, error);
           // Continue to try localStorage
         }
       }
@@ -116,7 +116,7 @@ function Preview() {
     }, 500);
     
     return () => clearTimeout(timer);
-  }, [searchParams, isAuthenticated]);
+  }, [router.query, isAuthenticated]);
 
   // Generate budget optimization suggestions when event changes or when over budget
   useEffect(() => {
@@ -224,7 +224,7 @@ function Preview() {
     alert('All data has been cleared. Returning to home page.');
     
     // Navigate to home
-    navigate('/');
+    router.push('/');
   };
 
   // Add this error UI component
@@ -316,7 +316,7 @@ function Preview() {
                   {event.name || "Your Event"}
                 </h2>
                 <Link
-                  to="/create"
+                  href="/create"
                   className="btn-secondary text-sm py-1.5 px-3"
                 >
                   Edit Event
@@ -543,7 +543,7 @@ function Preview() {
                   <p className="text-gray-500 mb-4">
                     Welcome to the quote preview! No services selected yet.
                   </p>
-                  <Link to="/create" className="btn-primary">
+                  <Link href="/create" className="btn-primary">
                     Add Services
                   </Link>
                 </div>

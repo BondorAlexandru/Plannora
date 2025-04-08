@@ -111,7 +111,7 @@ function Login() {
 
         <p className="text-gray-600 mt-4">
           Don't have an account?{' '}
-          <Link to="/register" className="text-primary-600 hover:text-primary-800 font-medium">
+          <Link href="/register" className="text-primary-600 hover:text-primary-800 font-medium">
             Register
           </Link>
         </p>

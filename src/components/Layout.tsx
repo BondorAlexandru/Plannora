@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 
 // Simplify with any type to avoid React type conflicts
@@ -10,7 +11,7 @@ interface LayoutProps {
 // LogoutButton component
 const LogoutButton = ({ onClick }: { onClick?: () => void }) => {
   const { logout } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   const handleLogout = async () => {
@@ -18,7 +19,7 @@ const LogoutButton = ({ onClick }: { onClick?: () => void }) => {
       setIsLoggingOut(true);
       if (onClick) onClick(); // Close mobile menu if provided
       await logout();
-      navigate('/');
+      router.push('/');
     } catch (error) {
       console.error('Logout error', error);
     } finally {
@@ -42,7 +43,7 @@ const LogoutButton = ({ onClick }: { onClick?: () => void }) => {
 // New component to handle the quote navigation
 const GetQuoteLink = ({ onClick }: { onClick?: () => void }) => {
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
   
   useEffect(() => {
     // Try to get the current event from localStorage
@@ -64,9 +65,9 @@ const GetQuoteLink = ({ onClick }: { onClick?: () => void }) => {
     if (onClick) onClick();
     
     if (currentEventId) {
-      navigate(`/preview?eventId=${currentEventId}`);
+      router.push(`/preview?eventId=${currentEventId}`);
     } else {
-      navigate('/preview');
+      router.push('/preview');
     }
   };
   
@@ -95,7 +96,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Link to="/" className="flex items-center">
+              <Link href="/" className="flex items-center">
                 <span className="text-2xl font-display text-white">Plannora</span>
                 <span className="text-festive-yellow-300 ml-1">✨</span>
               </Link>
@@ -125,10 +126,10 @@ export default function Layout({ children }: LayoutProps) {
             <nav className="hidden md:block">
               <ul className="flex items-center space-x-6 font-heading">
                 <li>
-                  <Link to="/" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Home</Link>
+                  <Link href="/" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Home</Link>
                 </li>
                 <li>
-                  <Link to="/create" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Create Event</Link>
+                  <Link href="/create" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Create Event</Link>
                 </li>
                 <li>
                   <GetQuoteLink />
@@ -139,7 +140,7 @@ export default function Layout({ children }: LayoutProps) {
                 ) : isAuthenticated ? (
                   <>
                     <li>
-                      <Link to="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
+                      <Link href="/profile" className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200">
                         <div className="w-6 h-6 bg-primary-200 rounded-full flex items-center justify-center text-primary-600 font-bold text-sm mr-2">
                           {user?.name?.charAt(0) || 'U'}
                         </div>
@@ -167,12 +168,12 @@ export default function Layout({ children }: LayoutProps) {
                 ) : (
                   <>
                     <li>
-                      <Link to="/login" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">
+                      <Link href="/login" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">
                         Log In
                       </Link>
                     </li>
                     <li>
-                      <Link to="/register" className="bg-festive-yellow-400 hover:bg-festive-yellow-500 text-white px-3 py-1 rounded-lg transition-colors duration-200">
+                      <Link href="/register" className="bg-festive-yellow-400 hover:bg-festive-yellow-500 text-white px-3 py-1 rounded-lg transition-colors duration-200">
                         Sign Up
                       </Link>
                     </li>
@@ -188,7 +189,7 @@ export default function Layout({ children }: LayoutProps) {
               <ul className="space-y-3 pb-3 font-heading">
                 <li>
                   <Link 
-                    to="/" 
+                    href="/" 
                     className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -197,7 +198,7 @@ export default function Layout({ children }: LayoutProps) {
                 </li>
                 <li>
                   <Link 
-                    to="/create" 
+                    href="/create" 
                     className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -214,7 +215,7 @@ export default function Layout({ children }: LayoutProps) {
                   <>
                     <li>
                       <Link 
-                        to="/profile" 
+                        href="/profile" 
                         className="flex items-center bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors duration-200 w-fit"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
@@ -246,7 +247,7 @@ export default function Layout({ children }: LayoutProps) {
                   <>
                     <li>
                       <Link 
-                        to="/login" 
+                        href="/login" 
                         className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
@@ -255,7 +256,7 @@ export default function Layout({ children }: LayoutProps) {
                     </li>
                     <li>
                       <Link 
-                        to="/register" 
+                        href="/register" 
                         className="bg-festive-yellow-400 hover:bg-festive-yellow-500 text-white px-3 py-1 rounded-lg transition-colors duration-200 inline-block"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >

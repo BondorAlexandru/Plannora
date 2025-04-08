@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { ProviderCategory } from '../data/mockData';
 
 export default function Home() {
@@ -23,13 +23,13 @@ export default function Home() {
           </p>
           <div className="flex flex-col md:flex-row justify-center gap-4">
             <Link
-              to="/create"
+              href="/create"
               className="inline-block bg-primary-500 hover:bg-primary-600 text-white font-bold text-lg px-8 py-4 rounded-xl shadow-sm hover:shadow-md transition duration-300"
             >
               Start Planning Your Event
             </Link>
             <Link
-              to="/preview"
+              href="/preview"
               className="bg-festive-yellow-400 hover:bg-festive-yellow-500 font-bold text-lg px-8 py-4 rounded-xl shadow-fun hover:shadow-md transition duration-300 flex items-center justify-center"
             >
               <span className="mr-2 text-black">🎯</span> Get Your Free Quote
@@ -109,7 +109,7 @@ export default function Home() {
             return (
               <Link
                 key={category}
-                to={`/create?category=${category}`}
+                href={`/create?category=${category}`}
                 className={`${colorClass} p-6 rounded-xl shadow-fun hover:shadow-md transition-all duration-300 text-center`}
               >
                 <div className="font-heading font-semibold text-lg">{category}</div>
@@ -166,13 +166,13 @@ export default function Home() {
         </p>
         <div className="flex flex-col md:flex-row justify-center gap-4">
           <Link
-            to="/create"
+            href="/create"
             className="inline-block bg-primary-500 hover:bg-primary-600 text-white font-bold text-lg px-8 py-3 rounded-xl shadow-sm hover:shadow-md transition duration-300"
           >
             Get Started
           </Link>
           <Link
-            to="/preview" 
+            href="/preview" 
             className="bg-festive-yellow-400 hover:bg-festive-yellow-500 font-bold text-lg px-8 py-3 rounded-xl shadow-sm hover:shadow-md transition duration-300 flex items-center justify-center"
           >
             <span className="mr-2 text-black">🎯</span> Get Your Event Quote
