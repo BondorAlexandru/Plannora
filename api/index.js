@@ -1,51 +1,55 @@
-// Import the server app from the server directory
-import app from '../server/index.js';
+// A more direct approach for Vercel serverless functions
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
 
-// Add a debug route to verify the API is running and environment is properly set
+// Create a new Express app instead of importing the server directly
+// This avoids potential circular dependencies and initialization issues
+const app = express();
+
+// Basic middleware
+app.use(express.json());
+app.use(cookieParser());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'https://plannora.vercel.app',
+  credentials: true
+}));
+
+// Simple debug route
 app.get('/api/debug', (req, res) => {
-  res.status(200).json({
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-    hasMongoURI: !!process.env.MONGODB_URI,
-    hasJwtSecret: !!process.env.JWT_SECRET,
-    corsOrigin: process.env.CORS_ORIGIN || 'not set'
-  });
+  try {
+    res.status(200).json({
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      hasMongoURI: !!process.env.MONGODB_URI,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      corsOrigin: process.env.CORS_ORIGIN || 'not set'
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: 'Debug endpoint error' });
+  }
 });
 
-// Add error handling for unhandled errors
+// Simple root endpoint
+app.get('/api', (req, res) => {
+  res.status(200).json({ message: 'API is running' });
+});
+
+// Minimal error handling
 app.use((err, req, res, next) => {
-  console.error('Unhandled API error:', err);
-  // Detailed console logging for debugging
-  console.error('Error stack:', err.stack);
-  console.error('Error details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
-  
+  console.error('API error:', err);
   res.status(500).json({ 
     error: { 
       code: '500', 
-      message: 'A server error has occurred',
-      details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-      path: req.path
+      message: 'A server error has occurred'
     } 
   });
 });
 
-// Add specific CORS handling for auth routes in production
-app.options('/api/auth/login', (req, res) => {
-  const origin = process.env.CORS_ORIGIN || req.headers.origin || 'https://plannora.vercel.app';
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Methods', 'POST');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(200).send();
-});
-
-app.options('/api/auth/logout', (req, res) => {
-  const origin = process.env.CORS_ORIGIN || req.headers.origin || 'https://plannora.vercel.app';
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Methods', 'POST');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(200).send();
+// Forward all other requests to the main server file
+app.all('*', (req, res) => {
+  res.status(404).json({ error: 'Endpoint not found. API is running but this path does not exist.' });
 });
 
 // Export for Vercel serverless
