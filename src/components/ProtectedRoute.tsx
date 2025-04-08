@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, guestMode } = useAuth();
   
   // Show loading indicator while checking authentication
@@ -25,6 +25,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   
   // Render children if authenticated
   return <>{children}</>;
-};
+}
 
 export default ProtectedRoute; 

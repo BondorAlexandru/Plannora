@@ -5,7 +5,7 @@ import eventService from '../services/eventService';
 import { Event } from '../types';
 import { format } from 'date-fns';
 
-const UserProfile: React.FC = () => {
+function UserProfile() {
   const { user, logout, isAuthenticated } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
@@ -247,6 +247,6 @@ const UserProfile: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
 export default UserProfile; 

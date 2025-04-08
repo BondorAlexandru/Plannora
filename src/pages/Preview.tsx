@@ -32,7 +32,7 @@ const handleExportPDF = async (event: Event | null) => {
   }
 };
 
-const Preview = () => {
+function Preview() {
   const [event, setEvent] = useState<Event | null>(null);
   const [showBudgetSuggestions, setShowBudgetSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<{
@@ -613,6 +613,6 @@ const Preview = () => {
       )}
     </div>
   );
-};
+}
 
 export default Preview;

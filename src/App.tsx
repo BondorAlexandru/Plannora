@@ -1,48 +1,24 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { EventProvider } from './context/EventContext';
-import Layout from './components/Layout';
-import Home from './pages/Home';
-import Create from './pages/Create';
-import Preview from './pages/Preview';
+import React from 'react';
 import { AuthProvider } from './contexts/AuthContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ProtectedRoute from './components/ProtectedRoute';
-import UserProfile from './pages/UserProfile';
-import axios from 'axios';
+import dynamic from 'next/dynamic';
 
-// Configure axios defaults
-axios.defaults.withCredentials = true;
+// Import components with compatibility in mind
+const Layout = dynamic(() => import('./components/Layout'), { ssr: false });
+const Home = dynamic(() => import('./pages/Home'), { ssr: false });
+const Login = dynamic(() => import('./pages/Login'), { ssr: false });
+const Register = dynamic(() => import('./pages/Register'), { ssr: false });
+const Create = dynamic(() => import('./pages/Create'), { ssr: false });
+const Preview = dynamic(() => import('./pages/Preview'), { ssr: false });
+const UserProfile = dynamic(() => import('./pages/UserProfile'), { ssr: false });
+const ProtectedRoute = dynamic(() => import('./components/ProtectedRoute'), { ssr: false });
 
-const App = () => {
+// Use a simple function for type compatibility
+export default function App() {
   return (
-    <AuthProvider>
-      <Router future={{ 
-        v7_startTransition: true,
-        v7_relativeSplatPath: true 
-      }}>
-        <EventProvider>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/create" element={<Create />} />
-              <Route path="/preview" element={<Preview />} />
-              <Route 
-                path="/profile" 
-                element={
-                  <ProtectedRoute>
-                    <UserProfile />
-                  </ProtectedRoute>
-                } 
-              />
-            </Routes>
-          </Layout>
-        </EventProvider>
-      </Router>
-    </AuthProvider>
+    <AuthProvider children={
+      <div className="app-container">
+        This is the App component. Please use the Next.js pages directly from the pages directory.
+      </div>
+    } />
   );
-};
-
-export default App; 
+}; 

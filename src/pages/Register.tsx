@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const Register: React.FC = () => {
+function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -156,6 +156,6 @@ const Register: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
 export default Register; 
