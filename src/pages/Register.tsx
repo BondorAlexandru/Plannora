@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 
 function Register() {
@@ -11,7 +12,7 @@ function Register() {
   const [formError, setFormError] = useState('');
   
   const { register, error, clearError, setGuestMode } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +38,7 @@ function Register() {
     try {
       setIsSubmitting(true);
       await register(name, email, password);
-      navigate('/create');
+      router.push('/create');
     } catch (err) {
       // Error is handled by the auth context
     } finally {
@@ -47,7 +48,7 @@ function Register() {
   
   const handleGuestMode = () => {
     setGuestMode(true);
-    navigate('/create');
+    router.push('/create');
   };
   
   return (
@@ -73,7 +74,7 @@ function Register() {
             id="name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-300 focus:border-primary-500 transition-colors"
             placeholder="Your name"
             required
@@ -88,7 +89,7 @@ function Register() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-300 focus:border-primary-500 transition-colors"
             placeholder="your@email.com"
             required
@@ -103,7 +104,7 @@ function Register() {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-300 focus:border-primary-500 transition-colors"
             placeholder="At least 6 characters"
             required
@@ -119,7 +120,7 @@ function Register() {
             id="confirmPassword"
             type="password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-300 focus:border-primary-500 transition-colors"
             placeholder="Confirm your password"
             required
@@ -149,7 +150,7 @@ function Register() {
         
         <p className="text-gray-600 mt-4">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary-600 hover:text-primary-800 font-medium">
+          <Link href="/login" className="text-primary-600 hover:text-primary-800 font-medium">
             Log in
           </Link>
         </p>
