@@ -927,12 +927,15 @@ export default function Create() {
     // Save the event first
     saveCurrentEvent(false)
       .then(savedEvent => {
+        console.log("Event saved successfully, navigating to preview", savedEvent);
         // Navigate to preview with or without an ID
         if (savedEvent && (savedEvent._id || event?._id)) {
           const id = savedEvent?._id || event?._id || '';
+          console.log(`Navigating to preview with eventId=${id}`);
           navigate(`/preview?eventId=${id}`);
         } else {
           // Fallback to localStorage and basic preview
+          console.log("No ID found, saving to localStorage and navigating to basic preview");
           localStorage.setItem('event', JSON.stringify(event));
           navigate("/preview");
         }

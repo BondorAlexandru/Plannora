@@ -1,9 +1,10 @@
-import { ReactNode, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+// Simplify with any type to avoid React type conflicts
 interface LayoutProps {
-  children: ReactNode;
+  children: any;
 }
 
 // LogoutButton component
@@ -35,6 +36,48 @@ const LogoutButton = ({ onClick }: { onClick?: () => void }) => {
     >
       {isLoggingOut ? 'Logging out...' : 'Log Out'}
     </button>
+  );
+};
+
+// New component to handle the quote navigation
+const GetQuoteLink = ({ onClick }: { onClick?: () => void }) => {
+  const [currentEventId, setCurrentEventId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Try to get the current event from localStorage
+    const savedEvent = localStorage.getItem('event');
+    if (savedEvent) {
+      try {
+        const eventData = JSON.parse(savedEvent);
+        if (eventData && (eventData._id || eventData.id)) {
+          setCurrentEventId(eventData._id || eventData.id);
+        }
+      } catch (error) {
+        console.error("Error parsing event from localStorage:", error);
+      }
+    }
+  }, []);
+  
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (onClick) onClick();
+    
+    if (currentEventId) {
+      navigate(`/preview?eventId=${currentEventId}`);
+    } else {
+      navigate('/preview');
+    }
+  };
+  
+  return (
+    <a 
+      href="#" 
+      onClick={handleClick}
+      className="text-white hover:text-festive-yellow-200 transition-colors duration-200"
+    >
+      Get Quote
+    </a>
   );
 };
 
@@ -88,7 +131,7 @@ export default function Layout({ children }: LayoutProps) {
                   <Link to="/create" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Create Event</Link>
                 </li>
                 <li>
-                  <Link to="/preview" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Get Quote</Link>
+                  <GetQuoteLink />
                 </li>
                 
                 {isLoading ? (
@@ -162,13 +205,7 @@ export default function Layout({ children }: LayoutProps) {
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    to="/preview" 
-                    className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Get Quote
-                  </Link>
+                  <GetQuoteLink onClick={() => setIsMobileMenuOpen(false)} />
                 </li>
                 
                 {isLoading ? (

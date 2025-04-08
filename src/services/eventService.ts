@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 axios.defaults.withCredentials = true;
 
 // For debugging
-console.log('Using API URL:', API_URL);
+console.log('EventService using API URL:', API_URL);
 
 // Helper function to ensure auth token is set
 const ensureAuthToken = () => {
@@ -60,13 +60,37 @@ export const getEventsForStep1 = async (isAuthenticated: boolean): Promise<Event
 
 // Get event by ID from server
 export const getEventById = async (eventId: string, isAuthenticated: boolean): Promise<Event | null> => {
-  if (!isAuthenticated) {
-    return null;
-  }
-  
   try {
-    const response = await axios.get(`${API_URL}/events/${eventId}`);
-    return response.data;
+    // For authenticated users, try the API first
+    if (isAuthenticated) {
+      try {
+        const response = await axios.get(`${API_URL}/events/${eventId}`);
+        console.log('Event loaded from API successfully:', response.data);
+        
+        // Save to localStorage for easy access later
+        localStorage.setItem('event', JSON.stringify(response.data));
+        
+        return response.data;
+      } catch (apiError) {
+        console.error(`API error fetching event with ID ${eventId}:`, apiError);
+        // Fall through to try localStorage
+      }
+    }
+    
+    // For all users (or as fallback for API errors), check localStorage
+    const savedEvent = localStorage.getItem('event');
+    if (savedEvent) {
+      const parsedEvent = JSON.parse(savedEvent);
+      
+      // If we have eventId and it matches the localStorage event, return it
+      if (parsedEvent && (parsedEvent._id === eventId || parsedEvent.id === eventId)) {
+        console.log('Found matching event in localStorage');
+        return parsedEvent;
+      }
+    }
+    
+    // No event found in API or localStorage
+    return null;
   } catch (error) {
     console.error(`Error fetching event with ID ${eventId}:`, error);
     return null;

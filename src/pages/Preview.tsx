@@ -58,24 +58,27 @@ const Preview = () => {
       const savedEvent = localStorage.getItem('event');
       let localEvent = savedEvent ? JSON.parse(savedEvent) : null;
       
-      if (eventId && isAuthenticated) {
-        // If we have an event ID in the URL and user is authenticated, try to load from API
+      // Try to load from API with eventId if provided (regardless of auth state)
+      if (eventId) {
         try {
           console.log(`Attempting to load event with ID: ${eventId}`);
+          // Try with auth if authenticated, but allow fallback to no auth
           const fetchedEvent = await eventService.getEventById(eventId, isAuthenticated);
           
           if (fetchedEvent) {
             console.log(`Successfully loaded event from API: ${eventId}`);
             setEvent(fetchedEvent);
+            
+            // Store in localStorage for offline/cross-context access
+            localStorage.setItem('event', JSON.stringify(fetchedEvent));
+            
             setSampleMode(false);
             setIsLoading(false);
             return;
-          } else {
-            console.log(`Event ID ${eventId} not found on server, using localStorage fallback`);
           }
         } catch (error) {
           console.error(`Error loading event ${eventId} from API:`, error);
-          // Don't set error state here, we'll try localStorage first
+          // Continue to try localStorage
         }
       }
       

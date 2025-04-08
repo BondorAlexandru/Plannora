@@ -2,7 +2,11 @@ import React, { createContext, useState, useEffect, useContext, type ReactNode }
 import axios from 'axios';
 
 // Define the base URL for API calls
-const API_URL = '/api';
+// Use environment variables or fallback to the actual server URL
+const API_URL = typeof process !== 'undefined' && process.env.REACT_APP_API_URL ? 
+  process.env.REACT_APP_API_URL : 'http://localhost:5001/api';
+
+console.log('AuthContext using API URL:', API_URL);
 
 // Define User type
 interface User {
