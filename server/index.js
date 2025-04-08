@@ -161,9 +161,36 @@ const generateToken = (userId) => {
   return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '30d' });
 };
 
+// Connect to MongoDB
+let isConnected = false;
+async function connectToDatabase() {
+  if (isConnected) {
+    console.log('Using existing database connection');
+    return;
+  }
+
+  try {
+    console.log('Creating new database connection');
+    await mongoose.connect(MONGODB_URI, {
+      // These options help with connection management
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    
+    isConnected = true;
+    console.log('MongoDB connected successfully');
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error; // Re-throw for proper error handling
+  }
+}
+
 // Authentication middleware
 const authenticate = async (req, res, next) => {
   try {
+    // Connect to MongoDB first
+    await connectToDatabase();
+    
     // Get token from cookies or authorization header
     const token = req.cookies.token || (req.headers.authorization ? req.headers.authorization.split(' ')[1] : null);
     
@@ -278,7 +305,10 @@ app.post('/api/auth/register-direct', async (req, res) => {
 // Login route
 app.post('/api/auth/login', async (req, res) => {
   try {
-    // Set explicit CORS headers
+    // Connect to MongoDB first
+    await connectToDatabase();
+    
+    // Set explicit CORS headers for consistent handling
     const origin = process.env.NODE_ENV === 'production'
       ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
         ? req.headers.origin : 'https://plannora.vercel.app')
@@ -318,8 +348,9 @@ app.post('/api/auth/login', async (req, res) => {
       res.cookie('token', token, {
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production'
+        sameSite: 'none',
+        secure: true,
+        path: '/'
       });
       
       // Return user data (excluding password)
@@ -343,6 +374,9 @@ app.post('/api/auth/login', async (req, res) => {
 // Get user profile route
 app.get('/api/auth/profile', authenticate, async (req, res) => {
   try {
+    // Connect to MongoDB first
+    await connectToDatabase();
+    
     const user = req.user;
     
     // Don't send the password in the response
@@ -361,6 +395,9 @@ app.get('/api/auth/profile', authenticate, async (req, res) => {
 // Logout route
 app.post('/api/auth/logout', async (req, res) => {
   try {
+    // Connect to MongoDB first (in case we need to do any user-related operations)
+    await connectToDatabase();
+    
     // Set explicit CORS headers for consistent handling
     const origin = process.env.NODE_ENV === 'production'
       ? (req.headers.origin === 'https://plannora.vercel.app' || req.headers.origin === 'https://www.plannora.com' 
@@ -377,7 +414,7 @@ app.post('/api/auth/logout', async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       expires: new Date(0), // Expire immediately
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: 'none',
       path: '/'
     });
     
