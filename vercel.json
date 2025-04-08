@@ -9,7 +9,8 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "installCommand": "npm install --legacy-peer-deps"
       }
     }
   ],
@@ -23,7 +24,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/index.html"
+      "dest": "/dist/$1"
     }
   ]
 } 
