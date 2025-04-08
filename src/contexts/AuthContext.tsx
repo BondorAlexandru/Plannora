@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, type ReactNode } from 'react';
 import axios from 'axios';
 
 // Define the base URL for API calls
@@ -31,7 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Provider component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -92,8 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      // Try the direct registration endpoint
-      const res = await axios.post(`${API_URL}/auth/register-direct`, {
+      // Use the correct registration endpoint
+      const res = await axios.post(`${API_URL}/auth/register`, {
         name,
         email,
         password
@@ -197,6 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearError = () => setError(null);
 
   return (
+    // @ts-ignore - Work around React 18 typing issue
     <AuthContext.Provider
       value={{
         user,

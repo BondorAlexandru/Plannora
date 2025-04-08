@@ -3,11 +3,23 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
 import { createRouter } from './routes/index.js';
 
-// Load environment variables
-dotenv.config();
+// Get directory name in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables based on NODE_ENV
+if (process.env.NODE_ENV === 'production') {
+  dotenv.config({ path: path.resolve(__dirname, '../.env.production') });
+  console.log('Loaded production environment variables');
+} else {
+  dotenv.config({ path: path.resolve(__dirname, '../.env.development') });
+  console.log('Loaded development environment variables');
+}
 
 // MongoDB configuration
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -104,6 +116,12 @@ app.use((err, req, res, next) => {
     message: 'Internal server error', 
     error: process.env.NODE_ENV === 'production' ? undefined : err.message 
   });
+});
+
+// Start the server directly (ES modules approach)
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
 // Export handler for Vercel
