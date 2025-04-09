@@ -31,30 +31,46 @@ let cachedDb = null;
 
 // Connect to MongoDB
 export async function connectToMongoDB() {
-  if (cachedClient && cachedClient.topology && cachedClient.topology.isConnected()) {
-    return { client: cachedClient, db: cachedDb };
-  }
+  // Log important information for debugging
+  console.log(`Connecting to MongoDB (cached: ${!!cachedClient})`);
+  console.log(`DB_NAME: ${DB_NAME}`);
+  console.log(`MONGODB_URI exists: ${!!MONGODB_URI}`);
   
-  if (cachedClient) {
+  // Check if we have a cached connection that's still connected
+  if (cachedClient && cachedDb) {
     try {
-      await cachedClient.close();
+      // Ping to verify connection is still alive
+      await cachedDb.command({ ping: 1 });
+      console.log('Using cached MongoDB connection');
+      return { client: cachedClient, db: cachedDb };
     } catch (e) {
-      // Ignore close errors
+      console.log('Cached connection is stale, creating new connection');
+      // If ping fails, connection is stale - continue to create a new one
+      try {
+        await cachedClient.close();
+      } catch (closeErr) {
+        // Ignore close errors
+      }
+      cachedClient = null;
+      cachedDb = null;
     }
-    cachedClient = null;
-    cachedDb = null;
   }
   
   if (!MONGODB_URI) {
-    console.error('MONGODB_URI is undefined');
+    console.error('MONGODB_URI is undefined - check your environment variables');
     return { client: null, db: null };
   }
   
   try {
+    console.log('Creating new MongoDB connection');
     const client = new MongoClient(MONGODB_URI, {
       maxPoolSize: 1,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000, // Increased timeout
+      socketTimeoutMS: 45000, // Increased timeout
+      connectTimeoutMS: 10000, // Added explicit connect timeout
+      retryWrites: true, // Ensure retry writes is enabled
+      retryReads: true, // Ensure retry reads is enabled
+      w: 'majority', // Write concern
     });
     
     await client.connect();
@@ -62,12 +78,29 @@ export async function connectToMongoDB() {
     
     const db = client.db(DB_NAME);
     
+    // Test connection with a simple command
+    await db.command({ ping: 1 });
+    console.log('MongoDB ping successful');
+    
+    // Cache the client and db instances
     cachedClient = client;
     cachedDb = db;
     
     return { client, db };
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('MongoDB connection error:');
+    console.error(error);
+    
+    // More detailed error logging
+    if (error.name === 'MongoServerSelectionError') {
+      console.error('Could not connect to any MongoDB server in the cluster');
+      console.error('This may be due to network access restrictions or incorrect connection string');
+    }
+    
+    if (error.message && error.message.includes('authentication failed')) {
+      console.error('MongoDB authentication failed - check username and password');
+    }
+    
     return { client: null, db: null };
   }
 }
