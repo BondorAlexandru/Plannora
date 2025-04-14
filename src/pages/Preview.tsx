@@ -55,33 +55,42 @@ function Preview() {
       setError(null);
       const { eventId } = router.query;
       const eventIdString = typeof eventId === 'string' ? eventId : Array.isArray(eventId) ? eventId[0] : null;
-
+      
       // First try localStorage in all cases
       const savedEvent = localStorage.getItem('event');
       let localEvent = savedEvent ? JSON.parse(savedEvent) : null;
-
+      
       // Try to load from API with eventId if provided (regardless of auth state)
       if (eventIdString) {
         try {
           // Try with auth if authenticated, but allow fallback to no auth
           const fetchedEvent = await eventService.getEventById(eventIdString, isAuthenticated);
-
+          
           if (fetchedEvent) {
             setEvent(fetchedEvent);
-
+            
             // Store in localStorage for offline/cross-context access
             localStorage.setItem('event', JSON.stringify(fetchedEvent));
-
+            
             setSampleMode(false);
             setIsLoading(false);
             return;
+          } else if (isAuthenticated) {
+            // If authenticated but no event found, use localStorage if available
+            // This prevents unnecessary logouts when event isn't found
+            if (localEvent) {
+              setEvent(localEvent);
+              setSampleMode(false);
+              setIsLoading(false);
+              return;
+            }
           }
         } catch (error) {
           console.error(`Error loading event ${eventIdString} from API:`, error);
-          // Continue to try localStorage
+          // Don't logout - just silently fall back to localStorage
         }
       }
-
+      
       // Fallback to localStorage if API call failed or wasn't attempted
       if (localEvent) {
         setEvent(localEvent);
@@ -101,18 +110,18 @@ function Preview() {
       }
       setIsLoading(false);
     };
-
+    
     loadEvent().catch(err => {
       console.error('Unhandled error in loadEvent:', err);
       setError('Failed to load event data. Please try again or create a new event.');
       setIsLoading(false);
     });
-
+    
     // Show optimization tips after a delay for better UX
     const timer = setTimeout(() => {
       setShowTips(true);
     }, 500);
-
+    
     return () => clearTimeout(timer);
   }, [router.query, isAuthenticated]);
 

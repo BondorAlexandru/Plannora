@@ -73,10 +73,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUser(res.data);
         setIsAuthenticated(true);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Profile loading error:', err);
-        localStorage.removeItem('token');
-        delete axios.defaults.headers.common['Authorization'];
+        
+        // Only clear token on explicit 401 unauthorized errors
+        // For network errors or other issues, keep the token
+        if (err.response && err.response.status === 401) {
+          console.log('Unauthorized access (401) - clearing credentials');
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+        } else {
+          console.log('Non-auth error loading profile, keeping credentials');
+          // For network errors etc., we'll keep the token and just set not authenticated
+          setIsAuthenticated(false);
+        }
       } finally {
         setIsLoading(false);
       }

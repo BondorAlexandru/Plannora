@@ -63,6 +63,7 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
   try {
     // For authenticated users, try the API first
     if (isAuthenticated) {
+      ensureAuthToken();
       try {
         const response = await axios.get(`${API_URL}/events/${eventId}`);
         console.log('Event loaded from API successfully:', response.data);
@@ -71,9 +72,18 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
         localStorage.setItem('event', JSON.stringify(response.data));
         
         return response.data;
-      } catch (apiError) {
+      } catch (apiError: any) {
         console.error(`API error fetching event with ID ${eventId}:`, apiError);
-        // Fall through to try localStorage
+        
+        // Check if it's an authentication error (401)
+        if (apiError.response && apiError.response.status === 401) {
+          console.log('Authentication error - token may have expired');
+          // Don't clear token here, let AuthContext handle this
+          // Just return null so the UI can handle accordingly
+          return null;
+        }
+        
+        // For other errors, fall through to try localStorage
       }
     }
     
