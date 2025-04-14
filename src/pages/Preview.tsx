@@ -11,7 +11,7 @@ const handleExportPDF = async (event: Event | null) => {
   try {
     // Dynamically import html2pdf
     const html2pdf = (await import('html2pdf.js')).default;
-    
+
     const element = document.getElementById("quote-content");
     const opt = {
       margin: 10,
@@ -46,6 +46,8 @@ function Preview() {
   const { isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // State to handle minimized view on mobile
+  const [isSuggestionsMinimized, setIsSuggestionsMinimized] = useState(false);
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -53,25 +55,23 @@ function Preview() {
       setError(null);
       const { eventId } = router.query;
       const eventIdString = typeof eventId === 'string' ? eventId : Array.isArray(eventId) ? eventId[0] : null;
-      
+
       // First try localStorage in all cases
       const savedEvent = localStorage.getItem('event');
       let localEvent = savedEvent ? JSON.parse(savedEvent) : null;
-      
+
       // Try to load from API with eventId if provided (regardless of auth state)
       if (eventIdString) {
         try {
-          console.log(`Attempting to load event with ID: ${eventIdString}`);
           // Try with auth if authenticated, but allow fallback to no auth
           const fetchedEvent = await eventService.getEventById(eventIdString, isAuthenticated);
-          
+
           if (fetchedEvent) {
-            console.log(`Successfully loaded event from API: ${eventIdString}`);
             setEvent(fetchedEvent);
-            
+
             // Store in localStorage for offline/cross-context access
             localStorage.setItem('event', JSON.stringify(fetchedEvent));
-            
+
             setSampleMode(false);
             setIsLoading(false);
             return;
@@ -81,15 +81,13 @@ function Preview() {
           // Continue to try localStorage
         }
       }
-      
+
       // Fallback to localStorage if API call failed or wasn't attempted
       if (localEvent) {
-        console.log('Using event from localStorage');
         setEvent(localEvent);
         setSampleMode(false);
       } else {
         // If no event data anywhere, create sample data for demo purposes
-        console.log('No event data found, using sample mode');
         setSampleMode(true);
         setEvent({
           name: 'Sample Event',
@@ -103,18 +101,18 @@ function Preview() {
       }
       setIsLoading(false);
     };
-    
+
     loadEvent().catch(err => {
       console.error('Unhandled error in loadEvent:', err);
       setError('Failed to load event data. Please try again or create a new event.');
       setIsLoading(false);
     });
-    
+
     // Show optimization tips after a delay for better UX
     const timer = setTimeout(() => {
       setShowTips(true);
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, [router.query, isAuthenticated]);
 
@@ -122,7 +120,7 @@ function Preview() {
   useEffect(() => {
     if (event && isOverBudget) {
       generateBudgetSuggestions();
-      
+
       // Auto-show budget suggestions when tips are enabled
       if (showTips) {
         setShowBudgetSuggestions(true);
@@ -133,25 +131,25 @@ function Preview() {
   // Function to find cheaper alternatives for expensive services
   const generateBudgetSuggestions = () => {
     if (!event) return;
-    
+
     // First sort providers by price (most expensive first)
     const sortedProviders = [...event.selectedProviders].sort((a, b) => b.price - a.price);
-    
+
     const newSuggestions: {
       originalProvider: SelectedProvider;
       alternatives: typeof providers;
       savings: number;
     }[] = [];
-    
+
     // Find alternatives for each provider
     sortedProviders.forEach(provider => {
       // Get alternative providers in the same category with lower prices
-      const alternatives = providers.filter(p => 
-        p.category === provider.category && 
-        p.price < (provider.originalPrice || provider.price) && 
+      const alternatives = providers.filter(p =>
+        p.category === provider.category &&
+        p.price < (provider.originalPrice || provider.price) &&
         !event.selectedProviders.some(sp => sp.id === p.id)
       ).sort((a, b) => b.rating - a.rating);
-      
+
       if (alternatives.length > 0) {
         newSuggestions.push({
           originalProvider: provider,
@@ -160,7 +158,7 @@ function Preview() {
         });
       }
     });
-    
+
     // Sort suggestions by potential savings
     setSuggestions(newSuggestions.sort((a, b) => b.savings - a.savings));
   };
@@ -179,11 +177,11 @@ function Preview() {
   // Replace a selected provider with a suggested alternative
   const handleReplaceProvider = (originalId: string, newProvider: typeof providers[0]) => {
     if (!event) return;
-    
+
     // Calculate actual price for the new provider if it's per-person
     const isPerPerson = newProvider.category === "Catering";
     const actualPrice = isPerPerson ? newProvider.price * event.guestCount : newProvider.price;
-    
+
     const updatedProviders = event.selectedProviders.map(provider => {
       if (provider.id === originalId) {
         return {
@@ -198,15 +196,15 @@ function Preview() {
       }
       return provider;
     });
-    
+
     const updatedEvent = {
       ...event,
       selectedProviders: updatedProviders
     };
-    
+
     setEvent(updatedEvent);
     localStorage.setItem("event", JSON.stringify(updatedEvent));
-    
+
     // Regenerate budget suggestions
     setTimeout(() => {
       generateBudgetSuggestions();
@@ -219,10 +217,10 @@ function Preview() {
     localStorage.removeItem('event');
     localStorage.removeItem('eventStep');
     localStorage.removeItem('activeCategory');
-    
+
     // Show confirmation
     alert('All data has been cleared. Returning to home page.');
-    
+
     // Navigate to home
     router.push('/');
   };
@@ -261,7 +259,7 @@ function Preview() {
         {sampleMode && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4 mb-6 max-w-lg mx-auto">
             <p className="text-yellow-700">
-              <span className="font-medium">Sample Mode:</span> You're viewing a demo preview. 
+              <span className="font-medium">Sample Mode:</span> You're viewing a demo preview.
               <a href="/create" className="ml-2 text-primary-600 hover:text-primary-800 underline">Create your own event</a>
             </p>
           </div>
@@ -293,11 +291,32 @@ function Preview() {
                 </h2>
                 <div className="text-right">
                   <p className={`font-heading font-bold ${isOverBudget ? "text-red-500" : "text-green-500"}`}>
-                    Total: ${calculateTotal().toLocaleString()} 
+                    Total: ${calculateTotal().toLocaleString()}
                     {isOverBudget && <span className="text-red-500 text-sm ml-1">(${overBudgetAmount.toLocaleString()} over)</span>}
                   </p>
                 </div>
               </div>
+
+              {/* Always visible budget progress bar */}
+              <div className="mt-3 mb-1">
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${isOverBudget
+                        ? "bg-red-500"
+                        : calculateTotal() / event.budget > 0.9
+                          ? "bg-yellow-500"
+                          : "bg-green-500"
+                      }`}
+                    style={{ width: `${Math.min(calculateTotal() / event.budget * 100, 100)}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span>0%</span>
+                  <span>50%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+
               {isOverBudget && suggestions.length > 0 && !showBudgetSuggestions && showTips && (
                 <button
                   onClick={() => setShowBudgetSuggestions(true)}
@@ -308,165 +327,124 @@ function Preview() {
               )}
             </div>
           </div>
-          
-          <div id="quote-content">
-            <div className="bg-white rounded-xl shadow-fun p-6 mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-heading text-primary-700">
-                  {event.name || "Your Event"}
-                </h2>
-                <Link
-                  href="/create"
-                  className="btn-secondary text-sm py-1.5 px-3"
-                >
-                  Edit Event
-                </Link>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                <div>
-                  <p className="text-gray-600">
-                    <span className="font-medium">Date:</span>{" "}
-                    {new Date(event.date).toLocaleDateString()}
-                  </p>
-                  <p className="text-gray-600">
-                    <span className="font-medium">Location:</span>{" "}
-                    {event.location}
-                  </p>
-                  <p className="text-gray-600">
-                    <span className="font-medium">Event Type:</span>{" "}
-                    {event.eventType}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600">
-                    <span className="font-medium">Guest Count:</span>{" "}
-                    {event.guestCount}
-                  </p>
-                  <p className="text-gray-600 mr-2">
-                    <span className="font-medium">Budget:</span>{" "}
-                    <span
-                      className={isOverBudget ? "text-red-500 font-bold" : ""}
-                    >
-                      ${event.budget?.toLocaleString()}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div id="quote-content" className="space-y-8">
 
-            {/* Budget Optimization Suggestions */}
+            {/* Budget Optimization Section */}
             {isOverBudget && suggestions.length > 0 && (
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-heading text-primary-700">
                     Budget Optimization
                   </h2>
-                  <button
-                    onClick={() => setShowBudgetSuggestions(!showBudgetSuggestions)}
-                    className="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center"
-                  >
-                    {showBudgetSuggestions ? "Hide Suggestions" : "Show Suggestions"}
-                    {showBudgetSuggestions ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                
-                <div className={`bg-festive-yellow-50 rounded-xl shadow-fun p-4 transition-all duration-300 ${
-                  showBudgetSuggestions 
-                    ? 'opacity-100 mb-8' 
-                    : 'max-h-0 opacity-0 overflow-hidden py-0 mb-0'
-                }`}>
-                  <div className={`bg-white rounded-lg p-4 ${showBudgetSuggestions ? 'mb-4' : 'mb-0'}`}>
-                    <div className="flex items-center mb-2">
-                      <span className="text-festive-yellow-500 text-xl mr-2">💰</span>
-                      <h3 className="font-heading text-lg text-gray-800">You're ${overBudgetAmount.toLocaleString()} over budget</h3>
-                    </div>
-                    <p className="text-gray-600 mb-3">
-                      Here are some options to help you stay within your budget:
-                    </p>
-                    
-                    <div className="space-y-4">
-                      {suggestions.map((suggestion, index) => (
-                        <div key={index} className="border border-gray-100 rounded-lg overflow-hidden">
-                          <div className="p-3 bg-gray-50 flex justify-between items-center">
-                            <div className="flex items-center">
-                              <img 
-                                src={suggestion.originalProvider.image} 
-                                alt={suggestion.originalProvider.name}
-                                className="w-10 h-10 rounded-full object-cover mr-3"
-                              />
-                              <div>
-                                <p className="font-medium">{suggestion.originalProvider.name}</p>
-                                <p className="text-sm text-gray-500">
-                                  ${suggestion.originalProvider.price.toLocaleString()}
-                                  {suggestion.originalProvider.isPerPerson && 
-                                    <span className="text-xs"> (${suggestion.originalProvider.originalPrice?.toLocaleString()} × {event.guestCount} guests)</span>
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                            <span className="text-gray-400">→</span>
-                          </div>
-                          
-                          <div className="p-3">
-                            <p className="text-sm text-gray-600 mb-2">Potential savings: <span className="text-green-600 font-bold">${suggestion.savings.toLocaleString()}</span></p>
-                            
-                            <div className="space-y-2">
-                              {suggestion.alternatives.map((alt) => {
-                                const altPrice = alt.price * (suggestion.originalProvider.isPerPerson ? event.guestCount : 1);
-                                return (
-                                  <div key={alt.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                                    <div className="flex items-center">
-                                      <img 
-                                        src={alt.image}
-                                        alt={alt.name}
-                                        className="w-8 h-8 rounded-full object-cover mr-2"
-                                      />
-                                      <div>
-                                        <p className="font-medium text-sm">{alt.name}</p>
-                                        <div className="flex items-center">
-                                          <span className="text-yellow-400 mr-1 text-xs">★</span>
-                                          <span className="text-xs text-gray-500">{alt.rating}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <p className="text-primary-600 font-medium text-sm mr-3">
-                                        ${altPrice.toLocaleString()}
-                                        {suggestion.originalProvider.isPerPerson && 
-                                          <span className="text-xs text-gray-500 block"> 
-                                            (${alt.price} × {event.guestCount})
-                                          </span>
-                                        }
-                                      </p>
-                                      <button 
-                                        onClick={() => handleReplaceProvider(suggestion.originalProvider.id, alt)}
-                                        className="text-xs bg-primary-100 hover:bg-primary-200 text-primary-700 py-1 px-2 rounded transition-colors"
-                                      >
-                                        Switch
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    {/* Toggle for showing/hiding suggestions */}
+                    <button
+                      onClick={() => setShowBudgetSuggestions(!showBudgetSuggestions)}
+                      className="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center"
+                    >
+                      {showBudgetSuggestions ? "Hide Suggestions" : "Show Suggestions"}
+                      {showBudgetSuggestions ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Minimize/expand toggle for mobile */}
+                    <button
+                      onClick={() => setIsSuggestionsMinimized(!isSuggestionsMinimized)}
+                      className="text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 p-1.5 rounded-full"
+                      aria-label={isSuggestionsMinimized ? "Expand suggestions" : "Minimize suggestions"}
+                    >
+                      {isSuggestionsMinimized ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
-                
-                {/* Add extra space when the suggestions are shown */}
-                {showBudgetSuggestions && <div className="h-8"></div>}
+
+                <div className={`bg-festive-yellow-50 rounded-xl shadow-fun p-4 transition-all duration-300 ${showBudgetSuggestions
+                    ? 'opacity-100 mb-8'
+                    : 'max-h-0 opacity-0 overflow-hidden py-0 mb-0'
+                  }`}>
+                  {/* When minimized on mobile, show only a summary */}
+                  {isSuggestionsMinimized ? (
+                    <div className="p-2 text-center">
+                      <p className="text-primary-600 font-medium">
+                        {suggestions.length} optimization suggestions available
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Possible savings up to ${suggestions.reduce((sum, s) => sum + s.savings, 0).toLocaleString()}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-lg p-4 mb-4">
+                      <div className="flex items-center mb-2">
+                        <span className="text-festive-yellow-500 text-xl mr-2">💰</span>
+                        <h3 className="font-heading text-lg text-gray-800">You're ${overBudgetAmount.toLocaleString()} over budget</h3>
+                      </div>
+                      <p className="text-gray-600 mb-3">
+                        Here are some options to help you stay within your budget:
+                      </p>
+
+                      <div className="space-y-4">
+                        {suggestions.map((suggestion, index) => (
+                          <div key={index} className="border border-gray-100 rounded-lg p-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-heading text-primary-600 mb-1">
+                                  {suggestion.originalProvider.name} (${suggestion.originalProvider.price.toLocaleString()})
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-1">
+                                  Consider these alternatives to save up to ${suggestion.savings.toLocaleString()}:
+                                </p>
+                              </div>
+                              <span className="bg-festive-yellow-100 text-festive-yellow-800 text-xs px-2 py-1 rounded-full">
+                                Save ${suggestion.savings.toLocaleString()}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
+                              {suggestion.alternatives.map((alt, altIndex) => (
+                                <div key={altIndex} className="bg-gray-50 rounded-md p-2 flex flex-col h-full">
+                                  <div className="flex-grow">
+                                    <h5 className="font-medium text-gray-800 mb-1">{alt.name}</h5>
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-600">${alt.price.toLocaleString()}</span>
+                                      <span className="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                        {alt.rating}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleReplaceProvider(suggestion.originalProvider.id, alt)}
+                                    className="mt-2 w-full bg-primary-100 hover:bg-primary-200 text-primary-700 text-sm py-1 px-3 rounded transition-colors"
+                                  >
+                                    Replace
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -514,9 +492,8 @@ function Preview() {
                     <div className="flex justify-between items-center">
                       <p className="font-bold text-lg">Total Cost:</p>
                       <p
-                        className={`font-bold text-lg ${
-                          isOverBudget ? "text-red-500" : "text-primary-600"
-                        }`}
+                        className={`font-bold text-lg ${isOverBudget ? "text-red-500" : "text-primary-600"
+                          }`}
                       >
                         ${calculateTotal().toLocaleString()}
                       </p>
