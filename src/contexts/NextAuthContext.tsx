@@ -3,10 +3,9 @@ import axios from 'axios';
 import { useRouter } from 'next/router';
 
 // Define the base URL for API calls
-const API_URL = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL ? 
-  process.env.NEXT_PUBLIC_API_URL : 'http://localhost:5001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-console.log('Using API URL:', API_URL);
+console.log('NextAuthContext using API URL:', API_URL);
 
 // Define User type
 interface User {
@@ -82,9 +81,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
         
+        // Determine correct API URL based on environment
+        // For local development, explicitly target the correct port where your API is running
+        let apiUrl;
+        if (typeof window !== 'undefined') {
+          if (window.location.hostname === 'localhost') {
+            // Use the explicit port where your auth server is running
+            apiUrl = 'http://localhost:5001/api/auth/profile';
+            console.log('Using explicit local development auth endpoint');
+          } else {
+            // For production - use relative URL based on origin
+            apiUrl = `${window.location.origin}/api/auth/profile`;
+          }
+        } else {
+          apiUrl = '/api/auth/profile';
+        }
+        
         // Try to get user profile
-        console.log(`Calling profile API at: ${API_URL}/auth/profile`);
-        const res = await axios.get(`${API_URL}/auth/profile`);
+        console.log(`Calling profile API at: ${apiUrl}`);
+        const res = await axios.get(apiUrl);
         console.log('Profile API response:', res.data);
         
         setUser(res.data);
@@ -116,8 +131,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(true);
       setError(null);
       
+      // Determine correct API URL based on environment
+      // For local development, explicitly target the correct port where your API is running
+      let apiUrl;
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          // Use the explicit port where your auth server is running
+          apiUrl = 'http://localhost:5001/api/auth/register';
+          console.log('Using explicit local development auth endpoint');
+        } else {
+          // For production - use relative URL based on origin
+          apiUrl = `${window.location.origin}/api/auth/register`;
+        }
+      } else {
+        apiUrl = '/api/auth/register';
+      }
+      
+      console.log(`API URL for register: ${apiUrl}`);
+      
       // Use the correct registration endpoint
-      const res = await axios.post(`${API_URL}/auth/register`, {
+      const res = await axios.post(apiUrl, {
         name,
         email,
         password
@@ -149,9 +182,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     try {
       console.log(`Attempting login with email: ${email}`);
-      console.log(`API URL for login: ${API_URL}/auth/login`);
       
-      const response = await axios.post(`${API_URL}/auth/login`, { email, password });
+      // Determine correct API URL based on environment
+      // For local development, explicitly target the correct port where your API is running
+      let apiUrl;
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          // Use the explicit port where your auth server is running
+          apiUrl = 'http://localhost:5001/api/auth/login';
+          console.log('Using explicit local development auth endpoint');
+        } else {
+          // For production - use relative URL based on origin
+          apiUrl = `${window.location.origin}/api/auth/login`;
+        }
+      } else {
+        apiUrl = '/api/auth/login';
+      }
+      
+      console.log(`API URL for login: ${apiUrl}`);
+      
+      const response = await axios.post(apiUrl, { email, password });
       console.log('Login response:', response.data);
       
       if (response.data) {
@@ -185,7 +235,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Only call the logout API if authenticated (not in guest mode)
       if (isAuthenticated) {
         try {
-          const response = await axios.post(`${API_URL}/auth/logout`);
+          // Determine correct API URL based on environment
+          // For local development, explicitly target the correct port where your API is running
+          let apiUrl;
+          if (typeof window !== 'undefined') {
+            if (window.location.hostname === 'localhost') {
+              // Use the explicit port where your auth server is running
+              apiUrl = 'http://localhost:5001/api/auth/logout';
+              console.log('Using explicit local development auth endpoint');
+            } else {
+              // For production - use relative URL based on origin
+              apiUrl = `${window.location.origin}/api/auth/logout`;
+            }
+          } else {
+            apiUrl = '/api/auth/logout';
+          }
+          
+          const response = await axios.post(apiUrl);
           console.log('Logout successful:', response.data);
         } catch (apiError) {
           console.error('API logout error:', apiError);

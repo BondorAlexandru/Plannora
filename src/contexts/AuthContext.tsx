@@ -3,8 +3,7 @@ import axios from 'axios';
 
 // Define the base URL for API calls
 // Use environment variables or fallback to the actual server URL
-const API_URL = typeof process !== 'undefined' && process.env.REACT_APP_API_URL ? 
-  process.env.REACT_APP_API_URL : 'http://localhost:5001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 console.log('AuthContext using API URL:', API_URL);
 
@@ -68,8 +67,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Set token in headers
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
+        // Determine correct API URL based on environment
+        // For local development, explicitly target the correct port where your API is running
+        let apiUrl;
+        if (typeof window !== 'undefined') {
+          if (window.location.hostname === 'localhost') {
+            // Use the explicit port where your auth server is running
+            apiUrl = 'http://localhost:5001/api/auth/profile';
+            console.log('Using explicit local development auth endpoint in AuthContext');
+          } else {
+            // For production - use relative URL based on origin
+            apiUrl = `${window.location.origin}/api/auth/profile`;
+          }
+        } else {
+          apiUrl = '/api/auth/profile';
+        }
+        
         // Try to get user profile
-        const res = await axios.get(`${API_URL}/auth/profile`);
+        console.log(`Calling profile API at: ${apiUrl}`);
+        const res = await axios.get(apiUrl);
         
         setUser(res.data);
         setIsAuthenticated(true);
@@ -106,8 +122,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(true);
       setError(null);
       
+      // Determine correct API URL based on environment
+      // For local development, explicitly target the correct port where your API is running
+      let apiUrl;
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          // Use the explicit port where your auth server is running
+          apiUrl = 'http://localhost:5001/api/auth/register';
+          console.log('Using explicit local development auth endpoint in AuthContext');
+        } else {
+          // For production - use relative URL based on origin
+          apiUrl = `${window.location.origin}/api/auth/register`;
+        }
+      } else {
+        apiUrl = '/api/auth/register';
+      }
+      
       // Use the correct registration endpoint
-      const res = await axios.post(`${API_URL}/auth/register`, {
+      const res = await axios.post(apiUrl, {
         name,
         email,
         password
@@ -138,7 +170,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(true);
       setError(null);
       
-      const res = await axios.post(`${API_URL}/auth/login`, {
+      // Determine correct API URL based on environment
+      // For local development, explicitly target the correct port where your API is running
+      let apiUrl;
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          // Use the explicit port where your auth server is running
+          apiUrl = 'http://localhost:5001/api/auth/login';
+          console.log('Using explicit local development auth endpoint in AuthContext');
+        } else {
+          // For production - use relative URL based on origin
+          apiUrl = `${window.location.origin}/api/auth/login`;
+        }
+      } else {
+        apiUrl = '/api/auth/login';
+      }
+      
+      console.log(`API URL for login: ${apiUrl}`);
+      
+      const res = await axios.post(apiUrl, {
         email,
         password
       });
@@ -154,6 +204,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       setGuestMode(false);
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
       throw err;
     } finally {
@@ -164,46 +215,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Logout user
   const logout = async () => {
     try {
-      setIsLoading(true);
-      
-      // Only call the logout API if authenticated (not in guest mode)
+      // Only call the logout API if authenticated
       if (isAuthenticated) {
+        // Determine correct API URL based on environment
+        // For local development, explicitly target the correct port where your API is running
+        let apiUrl;
+        if (typeof window !== 'undefined') {
+          if (window.location.hostname === 'localhost') {
+            // Use the explicit port where your auth server is running
+            apiUrl = 'http://localhost:5001/api/auth/logout';
+            console.log('Using explicit local development auth endpoint in AuthContext');
+          } else {
+            // For production - use relative URL based on origin
+            apiUrl = `${window.location.origin}/api/auth/logout`;
+          }
+        } else {
+          apiUrl = '/api/auth/logout';
+        }
+        
         try {
-          const response = await axios.post(`${API_URL}/auth/logout`);
-          console.log('Logout successful:', response.data);
-        } catch (apiError) {
-          console.error('API logout error:', apiError);
-          // Continue with client-side logout even if API call fails
+          await axios.post(apiUrl);
+        } catch (err) {
+          console.error('Logout error:', err);
         }
       }
       
-      // Always perform client-side logout actions regardless of API success
+      // Reset auth state
       setUser(null);
       setIsAuthenticated(false);
       
-      // Remove token from localStorage
+      // Clear localStorage
       localStorage.removeItem('token');
       delete axios.defaults.headers.common['Authorization'];
       
-      // Always clear guest mode
+      // Clear guest mode
       setGuestMode(false);
-      localStorage.removeItem('guestMode');
       
       // Clear event data
       localStorage.removeItem('event');
       localStorage.removeItem('eventStep');
       localStorage.removeItem('activeCategory');
-      
-    } catch (err: any) {
-      console.error('Logout process error:', err);
-      setError(err.response?.data?.message || 'Logout failed. Please try again.');
-      // Still try to clean up client-side state
-      setUser(null);
-      setIsAuthenticated(false);
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('Error in logout process:', error);
     }
   };
 

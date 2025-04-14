@@ -2,7 +2,17 @@ import axios from 'axios';
 import { Event } from '../types';
 
 // Define the base URL for API calls
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const API_URL = (() => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost') {
+      return 'http://localhost:5001/api';
+    } else {
+      return process.env.NEXT_PUBLIC_API_URL || '/api';
+    }
+  } else {
+    return process.env.NEXT_PUBLIC_API_URL || '/api';
+  }
+})();
 
 // Configure axios defaults for cookies
 axios.defaults.withCredentials = true;

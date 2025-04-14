@@ -4,7 +4,7 @@ import EventForm from "../components/EventForm";
 import { Event, SelectedProvider } from "../types";
 import { providers, ProviderCategory, Provider, Offer } from "../data/mockData";
 import ProviderDetail from "../components/ProviderDetail";
-import { useAuth } from "../contexts/NextAuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import eventService from "../services/eventService";
 import EventStepSelector from "../components/EventStepSelector";
 import EventsList from "../components/EventsList";
