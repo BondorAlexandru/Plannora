@@ -10,6 +10,7 @@ import EventStepSelector from "../components/EventStepSelector";
 import EventsList from "../components/EventsList";
 import ServicesSelection from "../components/ServicesSelection";
 import EventComparison from "../components/EventComparison";
+import { useEvent } from "../context/EventContext";
 import React from "react";
 
 // Define typed props for components 
@@ -126,6 +127,7 @@ export default function Create() {
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   const { isAuthenticated, guestMode } = useAuth();
+  const { reset: resetEventContext } = useEvent();
 
   // Replace router.push with options fixes
   const navigateTo = (url: string, replace = false) => {
@@ -187,40 +189,30 @@ export default function Create() {
 
   // Load saved event data if not in edit mode and no eventId
   useEffect(() => {
-    if (!eventIdStr) {
+    // Only run this effect once when the component mounts
+    if (!eventIdStr && !freshParam) {
       const loadData = async () => {
         try {
-          // Check if we're in the process of creating a new event
-          const isFreshStart = freshParam || (
-            event.name === "" && 
-            event.guestCount === 0 && 
-            event.budget === 0 && 
-            event.selectedProviders.length === 0
+          // Get event data from server or localStorage based on authentication
+          const savedEvent = await eventService.getEvent(
+            isAuthenticated,
+            guestMode
           );
-                             
-          // Only try to load saved data if we're not explicitly starting fresh
-          if (!isFreshStart) {
-            // Get event data from server or localStorage based on authentication
-            const savedEvent = await eventService.getEvent(
-              isAuthenticated,
-              guestMode
-            );
 
-            if (savedEvent) {
-              setEvent(savedEvent);
-            }
+          if (savedEvent) {
+            setEvent(savedEvent);
+          }
 
-            // Get step data
-            const savedStep = localStorage.getItem("eventStep");
-            if (savedStep) {
-              setStep(parseInt(savedStep));
-            }
+          // Get step data
+          const savedStep = localStorage.getItem("eventStep");
+          if (savedStep) {
+            setStep(parseInt(savedStep));
+          }
 
-            // Get active category data
-            const savedCategory = localStorage.getItem("activeCategory");
-            if (savedCategory) {
-              setActiveCategory(savedCategory as ProviderCategory);
-            }
+          // Get active category data
+          const savedCategory = localStorage.getItem("activeCategory");
+          if (savedCategory) {
+            setActiveCategory(savedCategory as ProviderCategory);
           }
         } catch (error) {
           console.error("Error loading event data:", error);
@@ -229,7 +221,22 @@ export default function Create() {
 
       loadData();
     }
-  }, [isAuthenticated, guestMode, eventIdStr, freshParam, event.name, event.guestCount, event.budget, event.selectedProviders.length]);
+    // If freshParam is true, ensure we start with clean state
+    else if (freshParam) {
+      setEvent({
+        name: "",
+        date: new Date().toISOString().split("T")[0],
+        location: "",
+        guestCount: 0,
+        budget: 0,
+        eventType: "Party",
+        selectedProviders: [],
+      });
+      setStep(1);
+      setActiveCategory(initialCategory);
+      setIsEditMode(false);
+    }
+  }, [eventIdStr, freshParam, initialCategory]); // Simplified dependencies
 
   // Helper to determine if we have a valid event ID from the server
   const hasValidEventId = (): boolean => {
@@ -974,8 +981,11 @@ export default function Create() {
     localStorage.removeItem("eventStep");
     localStorage.removeItem("activeCategory");
 
-    // Reset state
-    setEvent({
+    // Reset the EventContext as well
+    resetEventContext();
+
+    // Reset state to completely clean values
+    const cleanEvent = {
       name: "",
       date: new Date().toISOString().split("T")[0],
       location: "",
@@ -983,14 +993,24 @@ export default function Create() {
       budget: 0,
       eventType: "Party",
       selectedProviders: [],
-    });
+    };
+    
+    setEvent(cleanEvent);
     setStep(1);
-    setActiveCategory(initialCategory);
+    setActiveCategory(null);
     setBudgetSuggestions([]);
     setShowBudgetAlert(false);
     setBudgetImpact(null);
     setQuickAlternatives(null);
     setSelectedProvider(null);
+    
+    // Reset comparison state
+    setSelectedEventsForComparison({ event1: null, event2: null });
+    setShowComparisonModal(false);
+    
+    // Reset edit mode
+    setIsEditMode(false);
+    setIsLoadingEvent(false);
 
     // Show confirmation
     alert("All data has been cleared. You can start fresh!");
@@ -1033,8 +1053,11 @@ export default function Create() {
     localStorage.removeItem("eventStep");
     localStorage.removeItem("activeCategory");
     
+    // Reset the EventContext as well
+    resetEventContext();
+    
     // Clear form data and reset to default values
-    setEvent({
+    const cleanEvent = {
       name: "",
       date: new Date().toISOString().split("T")[0],
       location: "",
@@ -1042,12 +1065,9 @@ export default function Create() {
       budget: 0,
       eventType: "Party",
       selectedProviders: [],
-      // Explicitly remove any ID fields
-      _id: undefined,
-      id: undefined,
-      step: 1,
-      activeCategory: undefined
-    });
+    };
+    
+    setEvent(cleanEvent);
 
     // Reset all related state variables
     setStep(1);
@@ -1056,9 +1076,15 @@ export default function Create() {
     setBudgetImpact(null);
     setQuickAlternatives(null);
     setSelectedProvider(null);
+    setShowBudgetAlert(false);
     
-    // Reset edit mode and eventId parameters
+    // Reset comparison state
+    setSelectedEventsForComparison({ event1: null, event2: null });
+    setShowComparisonModal(false);
+    
+    // Reset edit mode
     setIsEditMode(false);
+    setIsLoadingEvent(false);
     
     // Update URL to remove any eventId and add parameter to prevent auto-loading data
     navigateTo("/create?fresh=true", true);
@@ -1125,13 +1151,21 @@ export default function Create() {
           Let's make your celebration unforgettable!
         </p>
 
-        {/* Clear Data Button */}
-        <button
-          onClick={handleClearData}
-          className="mt-4 bg-red-100 hover:bg-red-200 text-red-600 font-medium py-1 px-4 rounded-full text-sm transition-colors"
-        >
-          Clear & Start Over
-        </button>
+        {/* Action Buttons */}
+        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center items-center">
+          <button
+            onClick={handleCreateNewEvent}
+            className="bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white font-bold py-2 px-6 rounded-full shadow-lg transform transition hover:-translate-y-1"
+          >
+            ✨ Create New Event
+          </button>
+          <button
+            onClick={handleClearData}
+            className="bg-red-100 hover:bg-red-200 text-red-600 font-medium py-2 px-4 rounded-full text-sm transition-colors"
+          >
+            Clear & Start Over
+          </button>
+        </div>
       </div>
 
       {/* Step Selector Component */}

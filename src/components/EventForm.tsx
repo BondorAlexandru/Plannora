@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { useEvent } from '../context/EventContext';
 import { Event } from '../types';
 
@@ -21,6 +21,13 @@ export default function EventForm({ initialValues, onSubmit, isExistingEvent }: 
     eventType: 'Party',
     selectedProviders: []
   } as Event);
+
+  // Update form data when initialValues change (important for clean slate)
+  useEffect(() => {
+    if (initialValues) {
+      setEventData(initialValues);
+    }
+  }, [initialValues]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
