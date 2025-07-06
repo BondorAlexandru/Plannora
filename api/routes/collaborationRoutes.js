@@ -563,7 +563,23 @@ export default function collaborationRoutes(app) {
         return res.status(404).json({ message: 'Vendor note not found or access denied' });
       }
       
-      return res.status(200).json({ message: 'Vendor note updated successfully' });
+      // Get the updated note
+      const updatedNote = await vendorNotesCollection.findOne({ _id: new ObjectId(noteId) });
+      
+      return res.status(200).json({
+        _id: updatedNote._id,
+        collaborationId: updatedNote.collaborationId,
+        eventId: updatedNote.eventId,
+        vendorId: updatedNote.vendorId,
+        authorId: updatedNote.authorId,
+        note: updatedNote.note,
+        rating: updatedNote.rating,
+        tags: updatedNote.tags,
+        createdAt: updatedNote.createdAt,
+        updatedAt: updatedNote.updatedAt,
+        authorName: req.user.name,
+        isCurrentUser: true
+      });
     } catch (error) {
       console.error('Error updating vendor note:', error);
       return res.status(500).json({ message: 'Error updating vendor note', error: error.message });

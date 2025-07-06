@@ -66,6 +66,14 @@ const CollaborationPage: React.FC = () => {
   // Quick note state
   const [highlightVendorSelect, setHighlightVendorSelect] = useState(false);
   
+  // Edit/Delete note state
+  const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [editNoteText, setEditNoteText] = useState('');
+  const [editNoteRating, setEditNoteRating] = useState<number | null>(null);
+  const [editNoteTags, setEditNoteTags] = useState<string[]>([]);
+  const [updatingNote, setUpdatingNote] = useState(false);
+  const [deletingNote, setDeletingNote] = useState<string | null>(null);
+  
   const { user, getToken } = useAuth();
   const router = useRouter();
   const { id } = router.query;
@@ -357,7 +365,104 @@ const CollaborationPage: React.FC = () => {
     }, 100);
   };
 
+  const handleEditNote = (note: VendorNote) => {
+    setEditingNote(note._id);
+    setEditNoteText(note.note);
+    setEditNoteRating(note.rating || null);
+    setEditNoteTags(note.tags || []);
+  };
 
+  const handleCancelEdit = () => {
+    setEditingNote(null);
+    setEditNoteText('');
+    setEditNoteRating(null);
+    setEditNoteTags([]);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNote || !editNoteText.trim() || !id || !user) return;
+    
+    setUpdatingNote(true);
+    
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+      const response = await fetch(`${baseUrl}/api/collaborations/${id}/vendor-notes/${editingNote}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          note: editNoteText.trim(),
+          rating: editNoteRating,
+          tags: editNoteTags
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update note');
+      }
+      
+      const updatedNote = await response.json();
+      console.log('Backend response:', updatedNote);
+      console.log('Current vendorNotes before update:', vendorNotes);
+      console.log('Editing note ID:', editingNote);
+      
+      setVendorNotes(prev => {
+        const updated = prev.map(note => 
+          note._id === editingNote ? updatedNote : note
+        );
+        console.log('Updated vendorNotes:', updated);
+        return updated;
+      });
+      handleCancelEdit();
+    } catch (err) {
+      console.error('Error updating note:', err);
+      alert(err instanceof Error ? err.message : 'Failed to update note');
+    } finally {
+      setUpdatingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!id || !user) return;
+    
+    const confirmed = window.confirm('Are you sure you want to delete this note? This action cannot be undone.');
+    if (!confirmed) return;
+    
+    setDeletingNote(noteId);
+    
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+      const response = await fetch(`${baseUrl}/api/collaborations/${id}/vendor-notes/${noteId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete note');
+      }
+      
+      setVendorNotes(prev => prev.filter(note => note._id !== noteId));
+    } catch (err) {
+      console.error('Error deleting note:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete note');
+    } finally {
+      setDeletingNote(null);
+    }
+  };
+
+  const handleEditTagToggle = (tag: string) => {
+    setEditNoteTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
 
   // Calculate vendor notes count
   const vendorNotesCount = vendorNotes.reduce((counts, note) => {
@@ -735,28 +840,142 @@ const CollaborationPage: React.FC = () => {
                           <div className="space-y-3">
                             {vendorNotes.map(note => (
                               <div key={note._id} className="bg-white rounded-lg p-3 border border-green-200">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-medium text-gray-900">{note.authorName}</span>
-                                    {note.rating && (
-                                      <div className="flex items-center space-x-1">
-                                        <span className="text-yellow-400">★</span>
-                                        <span className="text-sm text-gray-600">{note.rating}/5</span>
+                                {editingNote === note._id ? (
+                                  // Edit mode
+                                  <div className="space-y-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Note
+                                      </label>
+                                      <textarea
+                                        value={editNoteText}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditNoteText(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                        rows={3}
+                                        placeholder="Edit your note..."
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Rating (optional)
+                                      </label>
+                                      <div className="flex items-center space-x-2">
+                                        {[1, 2, 3, 4, 5].map(rating => (
+                                          <button
+                                            key={rating}
+                                            onClick={() => setEditNoteRating(editNoteRating === rating ? null : rating)}
+                                            className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                                              editNoteRating === rating
+                                                ? 'bg-yellow-400 text-yellow-800'
+                                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                            }`}
+                                          >
+                                            {rating}
+                                          </button>
+                                        ))}
+                                        <button
+                                          onClick={() => setEditNoteRating(null)}
+                                          className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                                        >
+                                          Clear
+                                        </button>
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Tags (optional)
+                                      </label>
+                                      <div className="flex flex-wrap gap-2">
+                                        {availableTags.map(tag => (
+                                          <button
+                                            key={tag}
+                                            onClick={() => handleEditTagToggle(tag)}
+                                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                                              editNoteTags?.includes(tag)
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            }`}
+                                          >
+                                            {tag}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-end space-x-2">
+                                      <button
+                                        onClick={handleCancelEdit}
+                                        className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={handleSaveEdit}
+                                        disabled={!editNoteText.trim() || updatingNote}
+                                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {updatingNote ? 'Saving...' : 'Save'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // Display mode
+                                  <div>
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="font-medium text-gray-900">{note.authorName}</span>
+                                        {note.rating && (
+                                          <div className="flex items-center space-x-1">
+                                            <span className="text-yellow-400">★</span>
+                                            <span className="text-sm text-gray-600">{note.rating}/5</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm text-gray-500">
+                                          {new Date(note.createdAt).toLocaleDateString()}
+                                        </span>
+                                        {note.isCurrentUser && (
+                                          <div className="flex items-center space-x-1">
+                                            <button
+                                              onClick={() => handleEditNote(note)}
+                                              className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
+                                              title="Edit note"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                              </svg>
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteNote(note._id)}
+                                              disabled={deletingNote === note._id}
+                                              className="text-red-600 hover:text-red-800 p-1 rounded transition-colors disabled:opacity-50"
+                                              title="Delete note"
+                                            >
+                                              {deletingNote === note._id ? (
+                                                <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
+                                              ) : (
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                              )}
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <p className="text-gray-700 mb-2">{note.note}</p>
+                                    {note.tags && note.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {note.tags.map((tag, index) => (
+                                          <span key={`${tag}-${index}`} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                            {tag}
+                                          </span>
+                                        ))}
                                       </div>
                                     )}
-                                  </div>
-                                  <span className="text-sm text-gray-500">
-                                    {new Date(note.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                <p className="text-gray-700 mb-2">{note.note}</p>
-                                {note.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {note.tags.map(tag => (
-                                      <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
-                                        {tag}
-                                      </span>
-                                    ))}
                                   </div>
                                 )}
                               </div>
@@ -799,28 +1018,142 @@ const CollaborationPage: React.FC = () => {
                           <div className="space-y-3">
                             {notes.map(note => (
                               <div key={note._id} className="bg-gray-50 rounded-lg p-3">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-medium text-gray-900">{note.authorName}</span>
-                                    {note.rating && (
-                                      <div className="flex items-center space-x-1">
-                                        <span className="text-yellow-400">★</span>
-                                        <span className="text-sm text-gray-600">{note.rating}/5</span>
+                                {editingNote === note._id ? (
+                                  // Edit mode
+                                  <div className="space-y-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Note
+                                      </label>
+                                      <textarea
+                                        value={editNoteText}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditNoteText(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                        rows={3}
+                                        placeholder="Edit your note..."
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Rating (optional)
+                                      </label>
+                                      <div className="flex items-center space-x-2">
+                                        {[1, 2, 3, 4, 5].map(rating => (
+                                          <button
+                                            key={rating}
+                                            onClick={() => setEditNoteRating(editNoteRating === rating ? null : rating)}
+                                            className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                                              editNoteRating === rating
+                                                ? 'bg-yellow-400 text-yellow-800'
+                                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                            }`}
+                                          >
+                                            {rating}
+                                          </button>
+                                        ))}
+                                        <button
+                                          onClick={() => setEditNoteRating(null)}
+                                          className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                                        >
+                                          Clear
+                                        </button>
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Tags (optional)
+                                      </label>
+                                      <div className="flex flex-wrap gap-2">
+                                        {availableTags.map(tag => (
+                                          <button
+                                            key={tag}
+                                            onClick={() => handleEditTagToggle(tag)}
+                                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                                              editNoteTags?.includes(tag)
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                            }`}
+                                          >
+                                            {tag}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-end space-x-2">
+                                      <button
+                                        onClick={handleCancelEdit}
+                                        className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={handleSaveEdit}
+                                        disabled={!editNoteText.trim() || updatingNote}
+                                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {updatingNote ? 'Saving...' : 'Save'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // Display mode
+                                  <div>
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="font-medium text-gray-900">{note.authorName}</span>
+                                        {note.rating && (
+                                          <div className="flex items-center space-x-1">
+                                            <span className="text-yellow-400">★</span>
+                                            <span className="text-sm text-gray-600">{note.rating}/5</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm text-gray-500">
+                                          {new Date(note.createdAt).toLocaleDateString()}
+                                        </span>
+                                        {note.isCurrentUser && (
+                                          <div className="flex items-center space-x-1">
+                                            <button
+                                              onClick={() => handleEditNote(note)}
+                                              className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
+                                              title="Edit note"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                              </svg>
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteNote(note._id)}
+                                              disabled={deletingNote === note._id}
+                                              className="text-red-600 hover:text-red-800 p-1 rounded transition-colors disabled:opacity-50"
+                                              title="Delete note"
+                                            >
+                                              {deletingNote === note._id ? (
+                                                <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
+                                              ) : (
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                              )}
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <p className="text-gray-700 mb-2">{note.note}</p>
+                                    {note.tags && note.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {note.tags.map((tag, index) => (
+                                          <span key={`${tag}-${index}`} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                            {tag}
+                                          </span>
+                                        ))}
                                       </div>
                                     )}
-                                  </div>
-                                  <span className="text-sm text-gray-500">
-                                    {new Date(note.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                <p className="text-gray-700 mb-2">{note.note}</p>
-                                {note.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {note.tags.map(tag => (
-                                      <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
-                                        {tag}
-                                      </span>
-                                    ))}
                                   </div>
                                 )}
                               </div>
