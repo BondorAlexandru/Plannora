@@ -30,6 +30,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
   const [isSending, setIsSending] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isPolling, setIsPolling] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -47,7 +48,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
   }, [messages]);
 
   // Load existing messages
-  const loadMessages = useCallback(async () => {
+  const loadMessages = useCallback(async (silent = false) => {
     if (!user || !collaborationId) return;
     
     try {
@@ -68,14 +69,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
           isCurrentUser: message.isCurrentUser ?? (message.senderId === user?._id || message.senderId.toString() === user?._id?.toString())
         }));
         
-
-        
-        setMessages(messagesWithCurrentUser);
+        // Only update if messages have actually changed (prevent unnecessary re-renders)
+        setMessages(prevMessages => {
+          // Compare message counts and latest message IDs
+          if (prevMessages.length !== messagesWithCurrentUser.length || 
+              (messagesWithCurrentUser.length > 0 && prevMessages.length > 0 && 
+               prevMessages[prevMessages.length - 1]?._id !== messagesWithCurrentUser[messagesWithCurrentUser.length - 1]?._id)) {
+            
+            if (!silent) {
+              console.log(`📨 Updated messages: ${prevMessages.length} → ${messagesWithCurrentUser.length}`);
+            }
+            return messagesWithCurrentUser;
+          }
+          return prevMessages;
+        });
       }
     } catch (error) {
-      console.error('Error loading messages:', error);
+      if (!silent) {
+        console.error('Error loading messages:', error);
+      }
     } finally {
-      setIsLoadingMessages(false);
+      if (!silent) {
+        setIsLoadingMessages(false);
+      }
     }
   }, [user?._id, collaborationId, getToken]);
 
@@ -296,13 +312,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
   // Polling for new messages in production (when WebSocket is not available)
   useEffect(() => {
     if (!isWebSocketSupported && user && collaborationId) {
-      const pollInterval = setInterval(() => {
-        loadMessages();
-      }, 3000); // Poll every 3 seconds
+      console.log('🔄 Starting message polling in production mode');
       
-      return () => clearInterval(pollInterval);
+      // Poll more frequently for better real-time feel
+      const pollInterval = setInterval(async () => {
+        setIsPolling(true);
+        await loadMessages(true); // Silent polling to avoid console spam
+        setIsPolling(false);
+      }, 2000); // Poll every 2 seconds
+      
+      return () => {
+        console.log('🛑 Stopping message polling');
+        clearInterval(pollInterval);
+      };
     }
   }, [user?._id, collaborationId, loadMessages, isWebSocketSupported]);
+  
+  // Also poll immediately after sending a message in production
+  const [lastMessageSent, setLastMessageSent] = useState<number>(0);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -359,6 +386,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
             return [...prev, messageWithCurrentUser];
           });
           setNewMessage('');
+          
+          // In production, trigger immediate polling after sending
+          if (!isWebSocketSupported) {
+            setLastMessageSent(Date.now());
+          }
         }
       } catch (fallbackError) {
         console.error('Fallback message sending failed:', fallbackError);
@@ -367,6 +399,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
       setIsSending(false);
     }
   };
+  
+  // Poll immediately after sending a message in production
+  useEffect(() => {
+    if (!isWebSocketSupported && lastMessageSent > 0) {
+      const timeoutId = setTimeout(() => {
+        loadMessages(true);
+      }, 500); // Small delay to ensure message is saved on server
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [lastMessageSent, loadMessages, isWebSocketSupported]);
 
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -408,7 +451,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
 
   const getConnectionStatusText = () => {
     if (!isWebSocketSupported) {
-      return 'HTTP Mode'; // Production mode without WebSocket
+      return 'Auto-Sync'; // Production mode with polling
     }
     
     switch (connectionStatus) {
@@ -437,8 +480,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">Chat</h3>
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${getConnectionStatusColor()}`}></div>
-            <span className="text-xs text-gray-500">{getConnectionStatusText()}</span>
+            <div className={`w-2 h-2 rounded-full ${getConnectionStatusColor()} ${isPolling ? 'animate-pulse' : ''}`}></div>
+            <span className="text-xs text-gray-500">
+              {getConnectionStatusText()}
+              {isPolling && !isWebSocketSupported && (
+                <span className="ml-1 text-blue-600">•</span>
+              )}
+            </span>
           </div>
         </div>
       </div>
@@ -577,7 +625,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
         {!isWebSocketSupported && (
           <div className="mt-2 text-center">
             <span className="text-xs text-gray-500">
-              Real-time chat mode - messages sync instantly
+              Auto-refreshing every 2 seconds - new messages appear automatically
             </span>
           </div>
         )}
