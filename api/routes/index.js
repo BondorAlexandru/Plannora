@@ -1,12 +1,16 @@
 // Routes index file - combines all route modules
 import authRoutes from './authRoutes.js';
 import eventRoutes from './eventRoutes.js';
+import matchRoutes from './matchRoutes.js';
+import collaborationRoutes from './collaborationRoutes.js';
 
 // Function to create and mount all routers on the app
 export function createRouter(app) {
   // Mount all route modules
   authRoutes(app);
   eventRoutes(app);
+  matchRoutes(app);
+  collaborationRoutes(app);
   
   // Add any other route modules here
   

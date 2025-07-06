@@ -7,13 +7,27 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 console.log('NextAuthContext using API URL:', API_URL);
 
-// Define User type
+// Define types locally
 interface User {
   _id: string;
   name: string;
   email: string;
-  createdAt?: string; // Add createdAt as an optional field
-  updatedAt?: string; // Add updatedAt as an optional field
+  accountType: 'client' | 'planner';
+  plannerProfile?: PlannerProfile;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface PlannerProfile {
+  businessName: string;
+  services: string[];
+  experience: string;
+  description: string;
+  pricing: string;
+  portfolio: string[];
+  rating: number;
+  reviewCount: number;
+  isAvailable: boolean;
 }
 
 // Define Auth Context state
@@ -22,12 +36,14 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, accountType: 'client' | 'planner', plannerProfile?: PlannerProfile) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
   guestMode: boolean;
   setGuestMode: (value: boolean) => void;
   clearError: () => void;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+  getToken: () => Promise<string>;
 }
 
 // Create context with a default value
@@ -41,7 +57,9 @@ const AuthContext = createContext<AuthContextType>({
   error: null,
   guestMode: false,
   setGuestMode: () => {},
-  clearError: () => {}
+  clearError: () => {},
+  updateProfile: async () => {},
+  getToken: async () => ''
 });
 
 // Provider component
@@ -126,7 +144,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [guestMode]);
 
   // Register user
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string, accountType: 'client' | 'planner', plannerProfile?: PlannerProfile) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -150,11 +168,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log(`API URL for register: ${apiUrl}`);
       
       // Use the correct registration endpoint
-      const res = await axios.post(apiUrl, {
+      const requestData: any = {
         name,
         email,
-        password
-      });
+        password,
+        accountType
+      };
+      
+      // Only include plannerProfile if it exists and accountType is planner
+      if (accountType === 'planner' && plannerProfile) {
+        requestData.plannerProfile = plannerProfile;
+      }
+      
+      const res = await axios.post(apiUrl, requestData);
       
       setUser(res.data);
       setIsAuthenticated(true);
@@ -217,9 +243,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setGuestMode(false);
       }
     } catch (err: any) {
-      console.error('Login error details:', err);
-      console.error('Response data:', err.response?.data);
-      console.error('Response status:', err.response?.status);
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
       throw err;
     } finally {
@@ -230,87 +254,118 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Logout user
   const logout = async () => {
     try {
-      setIsLoading(true);
-      
-      // Only call the logout API if authenticated (not in guest mode)
+      // Only call the logout API if authenticated
       if (isAuthenticated) {
-        try {
-          // Determine correct API URL based on environment
-          // For local development, explicitly target the correct port where your API is running
-          let apiUrl;
-          if (typeof window !== 'undefined') {
-            if (window.location.hostname === 'localhost') {
-              // Use the explicit port where your auth server is running
-              apiUrl = 'http://localhost:5001/api/auth/logout';
-              console.log('Using explicit local development auth endpoint');
-            } else {
-              // For production - use relative URL based on origin
-              apiUrl = `${window.location.origin}/api/auth/logout`;
-            }
+        // Determine correct API URL based on environment
+        // For local development, explicitly target the correct port where your API is running
+        let apiUrl;
+        if (typeof window !== 'undefined') {
+          if (window.location.hostname === 'localhost') {
+            // Use the explicit port where your auth server is running
+            apiUrl = 'http://localhost:5001/api/auth/logout';
+            console.log('Using explicit local development auth endpoint');
           } else {
-            apiUrl = '/api/auth/logout';
+            // For production - use relative URL based on origin
+            apiUrl = `${window.location.origin}/api/auth/logout`;
           }
-          
-          const response = await axios.post(apiUrl);
-          console.log('Logout successful:', response.data);
-        } catch (apiError) {
-          console.error('API logout error:', apiError);
-          // Continue with client-side logout even if API call fails
+        } else {
+          apiUrl = '/api/auth/logout';
+        }
+        
+        try {
+          await axios.post(apiUrl);
+        } catch (err) {
+          console.error('Logout error:', err);
         }
       }
       
-      // Always perform client-side logout actions regardless of API success
+      // Reset auth state
       setUser(null);
       setIsAuthenticated(false);
       
+      // Clear localStorage
       if (typeof window !== 'undefined') {
-        // Remove token from localStorage
         localStorage.removeItem('token');
         delete axios.defaults.headers.common['Authorization'];
-        
-        // Always clear guest mode
-        setGuestMode(false);
-        localStorage.removeItem('guestMode');
-        
-        // Clear event data
+      }
+      
+      // Clear guest mode
+      setGuestMode(false);
+      
+      // Clear event data
+      if (typeof window !== 'undefined') {
         localStorage.removeItem('event');
         localStorage.removeItem('eventStep');
         localStorage.removeItem('activeCategory');
       }
-      
-    } catch (err: any) {
-      console.error('Logout process error:', err);
-      setError(err.response?.data?.message || 'Logout failed. Please try again.');
-      // Still try to clean up client-side state
-      setUser(null);
-      setIsAuthenticated(false);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        delete axios.defaults.headers.common['Authorization'];
-      }
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('Error in logout process:', error);
     }
   };
 
   // Clear error
   const clearError = () => setError(null);
 
-  const value = {
-    user,
-    isAuthenticated,
-    isLoading,
-    login,
-    register,
-    logout,
-    error,
-    guestMode,
-    setGuestMode,
-    clearError
+  // Update profile
+  const updateProfile = async (updates: Partial<User>) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Determine correct API URL based on environment
+      // For local development, explicitly target the correct port where your API is running
+      let apiUrl;
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          // Use the explicit port where your auth server is running
+          apiUrl = 'http://localhost:5001/api/auth/profile';
+          console.log('Using explicit local development auth endpoint');
+        } else {
+          // For production - use relative URL based on origin
+          apiUrl = `${window.location.origin}/api/auth/profile`;
+        }
+      } else {
+        apiUrl = '/api/auth/profile';
+      }
+      
+      // Use the correct update profile endpoint
+      const res = await axios.put(apiUrl, updates);
+      
+      setUser(res.data);
+    } catch (err: any) {
+      console.error('Profile update error:', err);
+      setError(err.response?.data?.message || 'Profile update failed. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get token from localStorage
+  const getToken = async (): Promise<string> => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token') || '';
+    }
+    return '';
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isLoading,
+        login,
+        register,
+        logout,
+        error,
+        guestMode,
+        setGuestMode,
+        clearError,
+        updateProfile,
+        getToken
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -318,6 +373,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 // Custom hook to use auth context
 export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext) as AuthContextType;
-  return context;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context as AuthContextType;
 }; 

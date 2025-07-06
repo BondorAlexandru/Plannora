@@ -8,6 +8,7 @@ function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [accountType, setAccountType] = useState<'client' | 'planner'>('client');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   
@@ -37,7 +38,7 @@ function Register() {
     
     try {
       setIsSubmitting(true);
-      await register(name, email, password);
+      await register(name, email, password, accountType, undefined);
       router.push('/create');
     } catch (err) {
       // Error is handled by the auth context
@@ -125,6 +126,60 @@ function Register() {
             placeholder="Confirm your password"
             required
           />
+        </div>
+        
+        {/* Account Type Selection */}
+        <div className="mb-6">
+          <label className="block mb-3 text-gray-700 font-medium">
+            Account Type
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <label
+              className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                accountType === 'client'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="accountType"
+                value="client"
+                checked={accountType === 'client'}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setAccountType(e.target.value as 'client' | 'planner')
+                }
+                className="mr-2"
+              />
+              <div>
+                <div className="font-semibold text-gray-800">Client</div>
+                <div className="text-xs text-gray-600">Planning an event</div>
+              </div>
+            </label>
+            
+            <label
+              className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                accountType === 'planner'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="accountType"
+                value="planner"
+                checked={accountType === 'planner'}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setAccountType(e.target.value as 'client' | 'planner')
+                }
+                className="mr-2"
+              />
+              <div>
+                <div className="font-semibold text-gray-800">Event Planner</div>
+                <div className="text-xs text-gray-600">Offering services</div>
+              </div>
+            </label>
+          </div>
         </div>
         
         <button

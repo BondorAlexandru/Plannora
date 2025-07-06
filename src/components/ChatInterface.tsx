@@ -1,0 +1,394 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../contexts/NextAuthContext';
+
+interface ChatMessage {
+  _id: string;
+  collaborationId: string;
+  senderId: string;
+  message: string;
+  timestamp: string;
+  edited: boolean;
+  editedAt?: string;
+  senderName: string;
+}
+
+interface ChatInterfaceProps {
+  collaborationId: string;
+}
+
+enum ConnectionStatus {
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  DISCONNECTED = 'disconnected',
+  ERROR = 'error'
+}
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
+  const [isSending, setIsSending] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  
+  const wsRef = useRef<WebSocket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttempts = useRef(0);
+  
+  const { user, getToken } = useAuth();
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Load existing messages
+  const loadMessages = useCallback(async () => {
+    if (!user || !collaborationId) return;
+    
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+      const response = await fetch(`${baseUrl}/api/collaborations/${collaborationId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.reverse()); // Reverse to show oldest first
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }, [user, collaborationId, getToken]);
+
+  // WebSocket connection setup
+  const connectWebSocket = useCallback(async () => {
+    if (!user || !collaborationId) return;
+    
+    try {
+      setConnectionStatus(ConnectionStatus.CONNECTING);
+      
+      const token = await getToken();
+      const wsUrl = process.env.NODE_ENV === 'development' 
+        ? 'ws://localhost:5001/ws' 
+        : `wss://${window.location.host}/ws`;
+      
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('🔌 WebSocket connected');
+        setConnectionStatus(ConnectionStatus.CONNECTED);
+        reconnectAttempts.current = 0;
+        
+        // Authenticate with the server
+        ws.send(JSON.stringify({
+          type: 'auth',
+          token: token,
+          collaborationId: collaborationId
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'auth_success') {
+            console.log('✅ WebSocket authenticated successfully');
+          } else if (data.type === 'auth_error') {
+            console.error('❌ WebSocket authentication failed:', data.message);
+            setConnectionStatus(ConnectionStatus.ERROR);
+          } else if (data.type === 'new_message') {
+            console.log('💬 New message received:', data.message);
+            setMessages(prev => [...prev, data.message]);
+          } else if (data.type === 'error') {
+            console.error('WebSocket error:', data.message);
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = (event) => {
+        console.log('🔌 WebSocket connection closed:', event.code, event.reason);
+        setConnectionStatus(ConnectionStatus.DISCONNECTED);
+        wsRef.current = null;
+        
+        // Attempt to reconnect unless it was a clean close
+        if (event.code !== 1000 && reconnectAttempts.current < 5) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+          console.log(`🔄 Attempting to reconnect in ${delay}ms...`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttempts.current++;
+            connectWebSocket();
+          }, delay);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+        setConnectionStatus(ConnectionStatus.ERROR);
+      };
+
+    } catch (error) {
+      console.error('Error setting up WebSocket:', error);
+      setConnectionStatus(ConnectionStatus.ERROR);
+    }
+  }, [user, collaborationId, getToken]);
+
+  // Initialize connection and load messages
+  useEffect(() => {
+    if (user && collaborationId) {
+      loadMessages();
+      connectWebSocket();
+    }
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close(1000, 'Component unmounting');
+      }
+    };
+  }, [user, collaborationId, loadMessages, connectWebSocket]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || isSending || connectionStatus !== ConnectionStatus.CONNECTED) return;
+
+    setIsSending(true);
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'chat_message',
+          content: newMessage.trim()
+        }));
+        setNewMessage('');
+      } else {
+        throw new Error('WebSocket not connected');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Fallback to HTTP API if WebSocket fails
+      try {
+        const token = await getToken();
+        const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+        const response = await fetch(`${baseUrl}/api/collaborations/${collaborationId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ message: newMessage.trim() })
+        });
+        
+        if (response.ok) {
+          const newMessageData = await response.json();
+          setMessages(prev => [...prev, newMessageData]);
+          setNewMessage('');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback message sending failed:', fallbackError);
+      }
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatDate = (timestamp: string) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Group messages by date
+  const groupedMessages = messages.reduce((groups, message) => {
+    const date = formatDate(message.timestamp);
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(message);
+    return groups;
+  }, {} as Record<string, ChatMessage[]>);
+
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case ConnectionStatus.CONNECTED: return 'bg-green-500';
+      case ConnectionStatus.CONNECTING: return 'bg-yellow-500';
+      case ConnectionStatus.ERROR: return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getConnectionStatusText = () => {
+    switch (connectionStatus) {
+      case ConnectionStatus.CONNECTED: return 'Connected';
+      case ConnectionStatus.CONNECTING: return 'Connecting...';
+      case ConnectionStatus.ERROR: return 'Connection error';
+      default: return 'Disconnected';
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-96 bg-white rounded-lg border border-gray-200">
+      {/* Chat Header */}
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-gray-900">Chat</h3>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${getConnectionStatusColor()}`}></div>
+            <span className="text-xs text-gray-500">{getConnectionStatusText()}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
+        {isLoadingMessages ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <>
+            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+              <div key={date}>
+                {/* Date separator */}
+                <div className="flex items-center justify-center py-3">
+                  <span className="px-3 py-1 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">
+                    {date}
+                  </span>
+                </div>
+                
+                {/* Messages for this date */}
+                {dateMessages.map((message: ChatMessage) => {
+                  const isCurrentUser = message.senderId === user?._id;
+                  return (
+                    <div
+                      key={message._id}
+                      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-3`}
+                    >
+                      <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${
+                        isCurrentUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'
+                      }`}>
+                        {/* Avatar */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${
+                          isCurrentUser ? 'bg-blue-600' : 'bg-green-600'
+                        }`}>
+                          {isCurrentUser ? 'You' : message.senderName.charAt(0)}
+                        </div>
+                        
+                        {/* Message bubble */}
+                        <div className="flex flex-col">
+                          {!isCurrentUser && (
+                            <div className="text-xs font-medium text-gray-600 mb-1 px-1">
+                              {message.senderName}
+                            </div>
+                          )}
+                          <div
+                            className={`px-4 py-2 rounded-2xl shadow-sm ${
+                              isCurrentUser
+                                ? 'bg-blue-600 text-white rounded-br-md'
+                                : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{message.message}</p>
+                            <div className={`text-xs mt-1 ${
+                              isCurrentUser ? 'text-blue-200' : 'text-gray-500'
+                            }`}>
+                              {formatTimestamp(message.timestamp)}
+                              {message.edited && <span className="ml-1">(edited)</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            
+            {messages.length === 0 && (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium">No messages yet</p>
+                  <p className="text-xs mt-1 text-gray-400">Start the conversation!</p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+        
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Message Input */}
+      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+        <form onSubmit={handleSendMessage} className="flex space-x-3">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              disabled={isSending || connectionStatus !== ConnectionStatus.CONNECTED}
+              className="w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:bg-gray-100"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!newMessage.trim() || isSending || connectionStatus !== ConnectionStatus.CONNECTED}
+            className="px-6 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+          >
+            {isSending ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Sending</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                <span>Send</span>
+              </>
+            )}
+          </button>
+        </form>
+        
+        {connectionStatus !== ConnectionStatus.CONNECTED && (
+          <div className="mt-2 text-center">
+            <span className="text-xs text-gray-500">
+              {connectionStatus === ConnectionStatus.CONNECTING ? 'Connecting to chat...' : 'Chat unavailable - messages will be sent when reconnected'}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ChatInterface; 

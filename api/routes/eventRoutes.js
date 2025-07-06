@@ -4,7 +4,7 @@ import { connectToMongoDB } from '../index.js';
 import { authenticate } from '../middleware/auth.js';
 
 export default function eventRoutes(app) {
-  // Get all events for user
+  // Get all events for user (including collaborative events)
   app.get('/api/events', authenticate, async (req, res) => {
     try {
       const { db } = await connectToMongoDB();
@@ -16,11 +16,15 @@ export default function eventRoutes(app) {
       
       const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
       
-      // Get all events owned by the current user
-      // This is the one place we'll keep the user filter since we don't want to return ALL events
-      const events = await eventsCollection.find({ user: userId })
-        .sort({ updatedAt: -1 })
-        .toArray();
+      // Get all events owned by the current user OR where they are a collaborator
+      const events = await eventsCollection.find({
+        $or: [
+          { user: userId },
+          { collaborators: userId }
+        ]
+      })
+      .sort({ updatedAt: -1 })
+      .toArray();
       
       return res.status(200).json(events);
     } catch (error) {
@@ -29,7 +33,7 @@ export default function eventRoutes(app) {
     }
   });
 
-  // Get event by ID
+  // Get event by ID (with collaboration support)
   app.get('/api/events/:id', authenticate, async (req, res) => {
     try {
       const eventId = req.params.id;
@@ -46,13 +50,19 @@ export default function eventRoutes(app) {
       
       const eventsCollection = db.collection('events');
       
-      // Simple find by ID without user check
-      const event = await eventsCollection.findOne({ 
-        _id: new ObjectId(eventId)
+      const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
+      
+      // Get event where user is owner or collaborator
+      const event = await eventsCollection.findOne({
+        _id: new ObjectId(eventId),
+        $or: [
+          { user: userId },
+          { collaborators: userId }
+        ]
       });
       
       if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
+        return res.status(404).json({ message: 'Event not found or access denied' });
       }
       
       return res.status(200).json(event);
@@ -76,7 +86,12 @@ export default function eventRoutes(app) {
       
       // Find the most recently updated event or create a new one
       let event = await eventsCollection
-        .find({ user: userId })
+        .find({
+          $or: [
+            { user: userId },
+            { collaborators: userId }
+          ]
+        })
         .sort({ updatedAt: -1 })
         .limit(1)
         .next();
@@ -85,6 +100,7 @@ export default function eventRoutes(app) {
         // Create a new event if none found
         const newEvent = {
           user: userId,
+          collaborators: [],
           name: '',
           date: new Date().toISOString().split('T')[0],
           location: '',
@@ -125,6 +141,7 @@ export default function eventRoutes(app) {
       
       const newEvent = {
         user: userId,
+        collaborators: [],
         name: req.body.name || '',
         date: req.body.date || new Date().toISOString().split('T')[0],
         location: req.body.location || '',
@@ -148,7 +165,7 @@ export default function eventRoutes(app) {
     }
   });
 
-  // Update event by ID
+  // Update event by ID (with collaboration support)
   app.put('/api/events/:id', authenticate, async (req, res) => {
     try {
       const eventId = req.params.id;
@@ -167,10 +184,22 @@ export default function eventRoutes(app) {
       
       const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
       
+      // Check if user has access to this event
+      const existingEvent = await eventsCollection.findOne({
+        _id: new ObjectId(eventId),
+        $or: [
+          { user: userId },
+          { collaborators: userId }
+        ]
+      });
+      
+      if (!existingEvent) {
+        return res.status(404).json({ message: 'Event not found or access denied' });
+      }
+      
       // Prepare the update data
       const updateData = {
         ...req.body,
-        user: userId, // Always ensure the current user is set as the owner
         updatedAt: new Date()
       };
       
@@ -178,48 +207,24 @@ export default function eventRoutes(app) {
       delete updateData._id;
       delete updateData.id;
       
+      // Don't allow changing the owner or collaborators through this endpoint
+      delete updateData.user;
+      delete updateData.collaborators;
+      
       // Log what we're trying to update for debugging
       console.log(`Updating event ${eventId} for user ${userId}`, updateData);
       
-      // First check if the event exists
-      const existingEvent = await eventsCollection.findOne({ _id: new ObjectId(eventId) });
+      // Update the event
+      const result = await eventsCollection.updateOne(
+        { _id: new ObjectId(eventId) },
+        { $set: updateData }
+      );
       
-      // Update strategy differs based on if event exists
-      if (existingEvent) {
-        // Event exists, update it without checking ownership
-        const result = await eventsCollection.updateOne(
-          { _id: new ObjectId(eventId) },
-          { 
-            $set: updateData
-          }
-        );
-        
-        if (result.acknowledged && result.modifiedCount > 0) {
-          const updatedEvent = await eventsCollection.findOne({ _id: new ObjectId(eventId) });
-          return res.status(200).json(updatedEvent);
-        } else {
-          return res.status(500).json({ message: 'Failed to update event' });
-        }
+      if (result.acknowledged && result.modifiedCount > 0) {
+        const updatedEvent = await eventsCollection.findOne({ _id: new ObjectId(eventId) });
+        return res.status(200).json(updatedEvent);
       } else {
-        // Event doesn't exist, create it with the user's ID
-        updateData.createdAt = new Date();
-        
-        try {
-          const insertResult = await eventsCollection.insertOne({
-            _id: new ObjectId(eventId),
-            ...updateData
-          });
-          
-          if (insertResult.acknowledged) {
-            const newEvent = await eventsCollection.findOne({ _id: new ObjectId(eventId) });
-            return res.status(201).json(newEvent);
-          } else {
-            return res.status(500).json({ message: 'Failed to create event' });
-          }
-        } catch (insertError) {
-          console.error('Error creating event:', insertError);
-          return res.status(500).json({ message: 'Error creating event', error: insertError.message });
-        }
+        return res.status(500).json({ message: 'Failed to update event' });
       }
     } catch (error) {
       console.error('Error updating event:', error);
@@ -250,28 +255,28 @@ export default function eventRoutes(app) {
       
       const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
       
-      // Simple update with upsert
+      // Update step with collaboration support
       const result = await eventsCollection.updateOne(
-        { _id: new ObjectId(eventId) },
+        { 
+          _id: new ObjectId(eventId),
+          $or: [
+            { user: userId },
+            { collaborators: userId }
+          ]
+        },
         { 
           $set: { 
             step: parseInt(step),
-            user: userId,
             updatedAt: new Date()
-          },
-          $setOnInsert: { createdAt: new Date() }
-        },
-        { upsert: true }
+          }
+        }
       );
       
-      if (result.acknowledged) {
-        return res.status(200).json({ 
-          message: 'Event step updated successfully',
-          upserted: !!result.upsertedId
-        });
-      } else {
-        return res.status(500).json({ message: 'Failed to update event step' });
+      if (result.modifiedCount === 0) {
+        return res.status(404).json({ message: 'Event not found or access denied' });
       }
+      
+      return res.status(200).json({ message: 'Event step updated successfully' });
     } catch (error) {
       console.error('Error updating event step:', error);
       return res.status(500).json({ message: 'Error updating event step', error: error.message });
@@ -301,35 +306,35 @@ export default function eventRoutes(app) {
       
       const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
       
-      // Simple update with upsert
+      // Update category with collaboration support
       const result = await eventsCollection.updateOne(
-        { _id: new ObjectId(eventId) },
+        { 
+          _id: new ObjectId(eventId),
+          $or: [
+            { user: userId },
+            { collaborators: userId }
+          ]
+        },
         { 
           $set: { 
             activeCategory,
-            user: userId,
             updatedAt: new Date()
-          },
-          $setOnInsert: { createdAt: new Date() }
-        },
-        { upsert: true }
+          }
+        }
       );
       
-      if (result.acknowledged) {
-        return res.status(200).json({ 
-          message: 'Event category updated successfully',
-          upserted: !!result.upsertedId
-        });
-      } else {
-        return res.status(500).json({ message: 'Failed to update event category' });
+      if (result.modifiedCount === 0) {
+        return res.status(404).json({ message: 'Event not found or access denied' });
       }
+      
+      return res.status(200).json({ message: 'Event category updated successfully' });
     } catch (error) {
       console.error('Error updating event category:', error);
       return res.status(500).json({ message: 'Error updating event category', error: error.message });
     }
   });
 
-  // Delete event by ID
+  // Delete event by ID (with collaboration support)
   app.delete('/api/events/:id', authenticate, async (req, res) => {
     try {
       const eventId = req.params.id;
@@ -346,13 +351,16 @@ export default function eventRoutes(app) {
       
       const eventsCollection = db.collection('events');
       
-      // Simple delete without user check
+      const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
+      
+      // Only allow deletion if user is the owner (not collaborator)
       const result = await eventsCollection.deleteOne({ 
-        _id: new ObjectId(eventId)
+        _id: new ObjectId(eventId),
+        user: userId
       });
       
       if (result.deletedCount === 0) {
-        return res.status(404).json({ message: 'Event not found' });
+        return res.status(404).json({ message: 'Event not found or access denied' });
       }
       
       return res.status(200).json({ message: 'Event deleted successfully' });
@@ -374,7 +382,7 @@ export default function eventRoutes(app) {
       
       const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
       
-      // Find and delete the most recently updated event
+      // Find the most recently updated event and delete it
       const event = await eventsCollection
         .find({ user: userId })
         .sort({ updatedAt: -1 })
@@ -385,9 +393,16 @@ export default function eventRoutes(app) {
         return res.status(404).json({ message: 'No events found' });
       }
       
-      await eventsCollection.deleteOne({ _id: event._id });
+      const result = await eventsCollection.deleteOne({ 
+        _id: event._id,
+        user: userId
+      });
       
-      return res.status(200).json({ message: 'Current event deleted successfully' });
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ message: 'Event not found or access denied' });
+      }
+      
+      return res.status(200).json({ message: 'Event deleted successfully' });
     } catch (error) {
       console.error('Error deleting current event:', error);
       return res.status(500).json({ message: 'Error deleting current event', error: error.message });

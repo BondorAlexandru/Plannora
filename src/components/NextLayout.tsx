@@ -89,9 +89,21 @@ export const Layout = ({ children }: LayoutProps) => {
                 <li>
                   <Link href="/create" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Create Event</Link>
                 </li>
-                <li>
-                  <Link href="/preview" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Get Quote</Link>
-                </li>
+                {user?.accountType === 'client' && (
+                  <li>
+                    <Link href="/planners" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Planners</Link>
+                  </li>
+                )}
+                {user?.accountType === 'planner' && (
+                  <li>
+                    <Link href="/match-requests" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Match Requests</Link>
+                  </li>
+                )}
+                {user && (
+                  <li>
+                    <Link href="/collaborations" className="text-white hover:text-festive-yellow-200 transition-colors duration-200">Collaborations</Link>
+                  </li>
+                )}
                 
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>
@@ -163,15 +175,39 @@ export const Layout = ({ children }: LayoutProps) => {
                     Create Event
                   </Link>
                 </li>
-                <li>
-                  <Link 
-                    href="/preview" 
-                    className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Get Quote
-                  </Link>
-                </li>
+                {user?.accountType === 'client' && (
+                  <li>
+                    <Link 
+                      href="/planners" 
+                      className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Planners
+                    </Link>
+                  </li>
+                )}
+                {user?.accountType === 'planner' && (
+                  <li>
+                    <Link 
+                      href="/match-requests" 
+                      className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Match Requests
+                    </Link>
+                  </li>
+                )}
+                {user && (
+                  <li>
+                    <Link 
+                      href="/collaborations" 
+                      className="block text-white hover:text-festive-yellow-200 transition-colors duration-200"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Collaborations
+                    </Link>
+                  </li>
+                )}
                 
                 {isLoading ? (
                   <li className="w-8 h-8 rounded-full bg-white/20 animate-pulse"></li>

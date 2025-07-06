@@ -5,8 +5,11 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { createRouter } from './routes/index.js';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
+import jwt from 'jsonwebtoken';
 
 // Get directory name in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +26,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // MongoDB configuration
 const MONGODB_URI = process.env.MONGODB_URI;
-const DB_NAME = process.env.DB_NAME || 'plannora';
+const DB_NAME = process.env.DB_NAME || 'plannoraDatabase';
 
 // MongoDB connection cache
 let cachedClient = null;
@@ -151,10 +154,152 @@ app.use((err, req, res, next) => {
   });
 });
 
+// WebSocket authentication helper
+function authenticateWS(token) {
+  try {
+    if (!token) return null;
+    
+    // Remove 'Bearer ' if present
+    const actualToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    const decoded = jwt.verify(actualToken, process.env.JWT_SECRET);
+    return decoded;
+  } catch (error) {
+    console.error('WebSocket authentication error:', error);
+    return null;
+  }
+}
+
+// Create HTTP server
+const server = createServer(app);
+
+// WebSocket server for real-time chat
+const wss = new WebSocketServer({ 
+  server,
+  path: '/ws'
+});
+
+// Store active WebSocket connections by collaboration ID
+const collaborationConnections = new Map();
+
+wss.on('connection', (ws, req) => {
+  console.log('🔌 New WebSocket connection');
+  
+  let user = null;
+  let collaborationId = null;
+  
+  ws.on('message', async (data) => {
+    try {
+      const message = JSON.parse(data);
+      
+      // Handle authentication
+      if (message.type === 'auth') {
+        user = authenticateWS(message.token);
+        collaborationId = message.collaborationId;
+        
+        if (user && collaborationId) {
+          // Verify user has access to this collaboration
+          const { db } = await connectToMongoDB();
+          if (db) {
+            const collaboration = await db.collection('collaborations').findOne({
+              _id: new ObjectId(collaborationId),
+              $or: [
+                { clientId: new ObjectId(user._id) },
+                { plannerId: new ObjectId(user._id) }
+              ],
+              status: 'active'
+            });
+            
+            if (collaboration) {
+              // Add connection to the collaboration room
+              if (!collaborationConnections.has(collaborationId)) {
+                collaborationConnections.set(collaborationId, new Set());
+              }
+              collaborationConnections.get(collaborationId).add(ws);
+              
+              ws.collaborationId = collaborationId;
+              ws.user = user;
+              
+              console.log(`✅ User ${user.name} joined collaboration ${collaborationId}`);
+              ws.send(JSON.stringify({ type: 'auth_success' }));
+            } else {
+              ws.send(JSON.stringify({ type: 'auth_error', message: 'Access denied' }));
+            }
+          }
+        } else {
+          ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid token' }));
+        }
+      }
+      
+      // Handle chat messages
+      if (message.type === 'chat_message' && user && collaborationId) {
+        const { db } = await connectToMongoDB();
+        if (db) {
+          // Save message to database
+          const chatMessage = {
+            collaborationId: new ObjectId(collaborationId),
+            senderId: new ObjectId(user._id),
+            message: message.content.trim(),
+            timestamp: new Date(),
+            edited: false,
+            editedAt: null
+          };
+          
+          const result = await db.collection('collaborationMessages').insertOne(chatMessage);
+          
+          // Create response with sender info
+          const responseMessage = {
+            type: 'new_message',
+            message: {
+              _id: result.insertedId,
+              ...chatMessage,
+              senderName: user.name
+            }
+          };
+          
+          // Broadcast to all connections in this collaboration
+          const connections = collaborationConnections.get(collaborationId);
+          if (connections) {
+            connections.forEach(connection => {
+              if (connection.readyState === ws.OPEN) {
+                connection.send(JSON.stringify(responseMessage));
+              }
+            });
+          }
+          
+          console.log(`💬 Message from ${user.name} in collaboration ${collaborationId}`);
+        }
+      }
+      
+    } catch (error) {
+      console.error('WebSocket message error:', error);
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+    }
+  });
+  
+  ws.on('close', () => {
+    console.log('🔌 WebSocket connection closed');
+    
+    // Remove connection from collaboration room
+    if (collaborationId && collaborationConnections.has(collaborationId)) {
+      collaborationConnections.get(collaborationId).delete(ws);
+      
+      // Clean up empty collaboration rooms
+      if (collaborationConnections.get(collaborationId).size === 0) {
+        collaborationConnections.delete(collaborationId);
+      }
+    }
+  });
+  
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+});
+
 // Start the server directly (ES modules approach)
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket server available at ws://localhost:${PORT}/ws`);
 });
 
 // Export handler for Vercel

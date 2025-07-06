@@ -48,6 +48,7 @@ export default function authRoutes(app) {
             _id: 'admin-id',
             name: 'Admin User',
             email: email,
+            accountType: 'client', // Default fallback
             token,
             fallback: true
           });
@@ -96,6 +97,8 @@ export default function authRoutes(app) {
         _id: user._id,
         name: user.name,
         email: user.email,
+        accountType: user.accountType || 'client',
+        plannerProfile: user.plannerProfile || null,
         token
       });
     } catch (error) {
@@ -111,12 +114,24 @@ export default function authRoutes(app) {
   // Register route
   app.post('/api/auth/register', async (req, res) => {
     try {
-      const { name, email, password } = req.body;
+      const { name, email, password, accountType, plannerProfile } = req.body;
       
       console.log(`Registration attempt for: ${email}`);
       
-      if (!name || !email || !password) {
-        return res.status(400).json({ message: 'Name, email, and password are required' });
+      if (!name || !email || !password || !accountType) {
+        return res.status(400).json({ message: 'Name, email, password, and account type are required' });
+      }
+
+      // Validate account type
+      if (!['client', 'planner'].includes(accountType)) {
+        return res.status(400).json({ message: 'Account type must be either "client" or "planner"' });
+      }
+
+      // If planner, validate planner profile
+      if (accountType === 'planner') {
+        if (!plannerProfile || !plannerProfile.businessName || !plannerProfile.services || !plannerProfile.experience) {
+          return res.status(400).json({ message: 'Planner profile with business name, services, and experience is required for planner accounts' });
+        }
       }
       
       console.log('Connecting to database...');
@@ -151,6 +166,18 @@ export default function authRoutes(app) {
         name,
         email,
         password: hashedPassword,
+        accountType,
+        plannerProfile: accountType === 'planner' ? {
+          businessName: plannerProfile.businessName,
+          services: plannerProfile.services,
+          experience: plannerProfile.experience,
+          description: plannerProfile.description || '',
+          pricing: plannerProfile.pricing || '',
+          portfolio: plannerProfile.portfolio || [],
+          rating: 0,
+          reviewCount: 0,
+          isAvailable: true
+        } : null,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -168,7 +195,9 @@ export default function authRoutes(app) {
       const user = {
         _id: result.insertedId,
         name: newUser.name,
-        email: newUser.email
+        email: newUser.email,
+        accountType: newUser.accountType,
+        plannerProfile: newUser.plannerProfile
       };
       
       // Create token
@@ -209,11 +238,63 @@ export default function authRoutes(app) {
         _id: req.user._id,
         name: req.user.name,
         email: req.user.email,
+        accountType: req.user.accountType || 'client',
+        plannerProfile: req.user.plannerProfile || null,
         createdAt: req.user.createdAt
       });
     } catch (error) {
       console.error('Profile error:', error);
       return res.status(500).json({ message: 'Error fetching profile' });
+    }
+  });
+
+  // Update user profile
+  app.put('/api/auth/profile', authenticate, async (req, res) => {
+    try {
+      const { name, plannerProfile } = req.body;
+      
+      const { db } = await connectToMongoDB();
+      if (!db) {
+        return res.status(500).json({ message: 'Database connection failed' });
+      }
+      
+      const usersCollection = db.collection('users');
+      const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
+      
+      const updateData = {
+        updatedAt: new Date()
+      };
+      
+      if (name) updateData.name = name;
+      if (plannerProfile && req.user.accountType === 'planner') {
+        updateData.plannerProfile = {
+          ...req.user.plannerProfile,
+          ...plannerProfile
+        };
+      }
+      
+      const result = await usersCollection.updateOne(
+        { _id: userId },
+        { $set: updateData }
+      );
+      
+      if (result.modifiedCount === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      const updatedUser = await usersCollection.findOne({ _id: userId });
+      
+      return res.status(200).json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        accountType: updatedUser.accountType,
+        plannerProfile: updatedUser.plannerProfile,
+        createdAt: updatedUser.createdAt
+      });
+    } catch (error) {
+      console.error('Profile update error:', error);
+      return res.status(500).json({ message: 'Error updating profile' });
     }
   });
 
