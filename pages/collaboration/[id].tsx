@@ -6,8 +6,10 @@ import { useAuth } from '../../src/contexts/NextAuthContext';
 import ChatInterface from '../../src/components/ChatInterface';
 import ServicesSelection from '../../src/components/ServicesSelection';
 import { Event, SelectedProvider } from '../../src/types';
-import { Provider, ProviderCategory, providers } from '../../src/data/mockData';
+import { Provider, ProviderCategory, providers, Offer } from '../../src/data/mockData';
 import EventForm from '../../src/components/EventForm';
+import ProviderDetail from '../../src/components/ProviderDetail';
+import SearchableDropdown from '../../src/components/SearchableDropdown';
 
 interface Collaboration {
   _id: string;
@@ -27,13 +29,11 @@ interface Collaboration {
   isClient?: boolean;
 }
 
-
-
 interface VendorNote {
   _id: string;
   collaborationId: string;
   eventId: string;
-  providerId: string;
+  vendorId: string;
   authorId: string;
   note: string;
   rating?: number;
@@ -46,6 +46,7 @@ interface VendorNote {
 
 const CollaborationPage: React.FC = () => {
   const [collaboration, setCollaboration] = useState<Collaboration | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [vendorNotes, setVendorNotes] = useState<VendorNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,7 @@ const CollaborationPage: React.FC = () => {
   const [newNote, setNewNote] = useState('');
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedVendor, setSelectedVendor] = useState<string>('');
   const [addingNote, setAddingNote] = useState(false);
   const [archiving, setArchiving] = useState(false);
   
@@ -60,6 +62,9 @@ const CollaborationPage: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<ProviderCategory | null>(null);
   const [selectedProviders, setSelectedProviders] = useState<SelectedProvider[]>([]);
   const [selectedProviderDetail, setSelectedProviderDetail] = useState<Provider | null>(null);
+  
+  // Quick note state
+  const [highlightVendorSelect, setHighlightVendorSelect] = useState(false);
   
   const { user, getToken } = useAuth();
   const router = useRouter();
@@ -85,6 +90,21 @@ const CollaborationPage: React.FC = () => {
         
         const data = await response.json();
         setCollaboration(data);
+        
+        // Fetch the full event data
+        if (data.eventId) {
+          const eventResponse = await fetch(`${baseUrl}/api/events/${data.eventId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (eventResponse.ok) {
+            const eventData = await eventResponse.json();
+            setEvent(eventData);
+            setSelectedProviders(eventData.selectedProviders || []);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch collaboration');
       } finally {
@@ -94,8 +114,6 @@ const CollaborationPage: React.FC = () => {
 
     fetchCollaboration();
   }, [id, user, getToken]);
-
-
 
   // Fetch vendor notes
   useEffect(() => {
@@ -127,10 +145,8 @@ const CollaborationPage: React.FC = () => {
     }
   }, [id, user, collaboration, getToken]);
 
-
-
   const handleAddNote = async () => {
-    if (!newNote.trim() || !id || !user) return;
+    if (!newNote.trim() || !selectedVendor || !id || !user) return;
     
     setAddingNote(true);
     
@@ -144,7 +160,7 @@ const CollaborationPage: React.FC = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          providerId: 'general', // For general notes
+          vendorId: selectedVendor,
           note: newNote.trim(),
           rating: selectedRating,
           tags: selectedTags
@@ -160,6 +176,8 @@ const CollaborationPage: React.FC = () => {
       setNewNote('');
       setSelectedRating(null);
       setSelectedTags([]);
+      setSelectedVendor('');
+      setHighlightVendorSelect(false);
     } catch (err) {
       console.error('Error adding note:', err);
       alert(err instanceof Error ? err.message : 'Failed to add note');
@@ -181,77 +199,130 @@ const CollaborationPage: React.FC = () => {
     'Recommended'
   ];
 
+  // Group notes by vendor
+  const groupedNotes = vendorNotes.reduce((groups, note) => {
+    const vendorId = note.vendorId;
+    if (!groups[vendorId]) {
+      groups[vendorId] = [];
+    }
+    groups[vendorId].push(note);
+    return groups;
+  }, {} as Record<string, VendorNote[]>);
+
+  // Get vendor information by ID
+  const getVendorInfo = (vendorId: string) => {
+    if (vendorId === 'general') {
+      return { name: 'General Notes', category: 'General', image: '' };
+    }
+    const provider = providers.find(p => p.id === vendorId);
+    return provider ? { name: provider.name, category: provider.category, image: provider.image } : { name: 'Unknown Vendor', category: 'Unknown', image: '' };
+  };
+
+  // Check if vendor is selected in budget
+  const isVendorSelected = (providerId: string) => {
+    return selectedProviders.some(p => p.id === providerId);
+  };
+
   // ServicesSelection functions
-  const handleSelectProvider = (provider: SelectedProvider) => {
-    setSelectedProviders(prev => {
-      const exists = prev.find(p => p.id === provider.id);
-      if (exists) {
-        return prev.filter(p => p.id !== provider.id);
-      }
-      return [...prev, provider];
-    });
+  const handleSelectProvider = async (provider: SelectedProvider) => {
+    if (!event) return;
+    
+    const newSelectedProviders = selectedProviders.find(p => p.id === provider.id)
+      ? selectedProviders.filter(p => p.id !== provider.id)
+      : [...selectedProviders, provider];
+    
+    setSelectedProviders(newSelectedProviders);
+    
+    // Save to backend
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+      await fetch(`${baseUrl}/api/events/${event._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...event,
+          selectedProviders: newSelectedProviders
+        })
+      });
+    } catch (err) {
+      console.error('Error saving provider selection:', err);
+    }
   };
 
   const handleViewProviderDetail = (provider: Provider) => {
     setSelectedProviderDetail(provider);
   };
 
+  const handleSelectOffer = (provider: Provider, offer: Offer) => {
+    if (!event) return;
+    
+    const isPerPerson = provider.category === ProviderCategory.CATERING;
+    const price = isPerPerson ? offer.price * event.guestCount : offer.price;
+    
+    const selectedProvider: SelectedProvider = {
+      id: provider.id,
+      name: provider.name,
+      price: price,
+      category: provider.category,
+      image: provider.image,
+      offerName: offer.name,
+      originalPrice: isPerPerson ? offer.price : undefined,
+      isPerPerson
+    };
+
+    handleSelectProvider(selectedProvider);
+    setSelectedProviderDetail(null); // Close modal after selection
+  };
+
   const calculateTotal = () => {
     return selectedProviders.reduce((total, provider) => total + provider.price, 0);
   };
 
-  const budget = collaboration?.budget || 10000;
+  const budget = event?.budget || collaboration?.budget || 10000;
   const currentTotal = calculateTotal();
   const percentUsed = budget > 0 ? (currentTotal / budget) * 100 : 0;
   const budgetRemaining = budget - currentTotal;
   const isOverBudget = budget > 0 && currentTotal > budget;
 
-  // Create mock event object for ServicesSelection and EventForm
-  const mockEvent: Event = {
-    id: collaboration?._id || '',
-    name: collaboration?.eventName || '',
-    date: collaboration?.eventDate || '',
-    location: collaboration?.eventLocation || '',
-    eventType: 'Wedding',
-    guestCount: 100,
-    budget: budget,
-    selectedProviders: selectedProviders
-  };
-
   // Handle event editing
   const handleEditEvent = async (updatedEvent: Partial<Event>) => {
-    if (!collaboration || !user) return;
+    if (!event || !user) return;
     
     try {
       const token = await getToken();
       const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
       
-      // Update the collaboration with new event details
-      const response = await fetch(`${baseUrl}/api/collaborations/${collaboration._id}/event`, {
-        method: 'PATCH',
+      // Update the event with all fields
+      const response = await fetch(`${baseUrl}/api/events/${event._id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          eventName: updatedEvent.name,
-          eventDate: updatedEvent.date,
-          eventLocation: updatedEvent.location,
-          eventType: updatedEvent.eventType,
-          guestCount: updatedEvent.guestCount,
-          budget: updatedEvent.budget
+          ...event,
+          ...updatedEvent
         })
       });
       
       if (response.ok) {
-        // Update local collaboration state
-        setCollaboration(prev => prev ? {
-          ...prev,
-          eventName: updatedEvent.name || prev.eventName,
-          eventDate: updatedEvent.date || prev.eventDate,
-          eventLocation: updatedEvent.location || prev.eventLocation,
-          budget: updatedEvent.budget || prev.budget
-        } : null);
+        const updatedEventData = await response.json();
+        setEvent(updatedEventData);
+        
+        // Update local collaboration state if needed
+        if (collaboration) {
+          setCollaboration(prev => prev ? {
+            ...prev,
+            eventName: updatedEvent.name || prev.eventName,
+            eventDate: updatedEvent.date || prev.eventDate,
+            eventLocation: updatedEvent.location || prev.eventLocation,
+            budget: updatedEvent.budget || prev.budget
+          } : null);
+        }
         
         alert('Event details updated successfully!');
         setActiveTab('chat'); // Return to chat after saving
@@ -271,6 +342,28 @@ const CollaborationPage: React.FC = () => {
         : [...prev, tag]
     );
   };
+
+  // Quick note handlers
+  const handleQuickNote = (providerId: string, providerName: string) => {
+    setSelectedVendor(providerId);
+    setHighlightVendorSelect(true);
+    setActiveTab('notes');
+    // Focus on the note textarea after a short delay
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea[placeholder="Add your note about this vendor..."]') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.focus();
+      }
+    }, 100);
+  };
+
+
+
+  // Calculate vendor notes count
+  const vendorNotesCount = vendorNotes.reduce((counts, note) => {
+    counts[note.vendorId] = (counts[note.vendorId] || 0) + 1;
+    return counts;
+  }, {} as Record<string, number>);
 
   // Archive/unarchive collaboration
   const handleArchiveToggle = async () => {
@@ -345,7 +438,7 @@ const CollaborationPage: React.FC = () => {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-3">
               <h1 className="text-3xl font-bold text-gray-900">
-                {collaboration.eventName}
+                {event?.name || collaboration.eventName}
               </h1>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 collaboration.status === 'active'
@@ -383,11 +476,13 @@ const CollaborationPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center space-x-4 text-sm text-gray-600">
-            <span>📅 {collaboration.eventDate}</span>
-            <span>📍 {collaboration.eventLocation}</span>
+            <span>📅 {event?.date || collaboration.eventDate}</span>
+            <span>📍 {event?.location || collaboration.eventLocation}</span>
             <span>👥 {collaboration.clientName} & {collaboration.plannerBusinessName}</span>
-            {collaboration.budget && (
-              <span>💰 ${collaboration.budget.toLocaleString()}</span>
+            <span>🎉 {event?.eventType || 'Event'}</span>
+            <span>👤 {event?.guestCount || 'TBD'} guests</span>
+            {(event?.budget || collaboration.budget) && (
+              <span>💰 ${(event?.budget || collaboration.budget)?.toLocaleString()}</span>
             )}
           </div>
         </div>
@@ -447,9 +542,9 @@ const CollaborationPage: React.FC = () => {
           />
         )}
 
-        {activeTab === 'vendors' && (
+        {activeTab === 'vendors' && event && (
           <ServicesSelection
-            event={mockEvent}
+            event={event}
             providers={providers}
             activeCategory={activeCategory}
             setActiveCategory={setActiveCategory}
@@ -464,25 +559,62 @@ const CollaborationPage: React.FC = () => {
             budgetImpact={null}
             showBudgetAlert={false}
             budgetSuggestions={[]}
+            onQuickNote={handleQuickNote}
+            vendorNotes={vendorNotesCount}
           />
         )}
 
         {activeTab === 'notes' && (
           <div className="space-y-6">
             {/* Add Note Form */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className={`bg-white rounded-lg border p-6 transition-all duration-300 ${
+              highlightVendorSelect 
+                ? 'border-blue-300 ring-2 ring-blue-100 shadow-md' 
+                : 'border-gray-200'
+            }`}>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Add Vendor Note</h3>
               
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Vendor
+                  </label>
+                  <SearchableDropdown
+                    options={[
+                      { value: '', label: 'Choose a vendor...', description: '' },
+                      { value: 'general', label: 'General Notes', description: 'Notes not specific to any vendor' },
+                      ...providers.map(provider => ({
+                        value: provider.id,
+                        label: provider.name,
+                        description: `${provider.category}${isVendorSelected(provider.id) ? ' ✓ Selected' : ''}`
+                      }))
+                    ]}
+                    value={selectedVendor}
+                    onChange={(value) => {
+                      setSelectedVendor(value);
+                      setHighlightVendorSelect(false);
+                    }}
+                    placeholder="Search for a vendor..."
+                    className="w-full"
+                  />
+                </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Note
                   </label>
                   <textarea
                     value={newNote}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNote(e.target.value)}
-                    placeholder="Add your note about a vendor or general planning note..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                      setNewNote(e.target.value);
+                      setHighlightVendorSelect(false);
+                    }}
+                    placeholder="Add your note about this vendor..."
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 ${
+                      highlightVendorSelect 
+                        ? 'border-blue-300 ring-1 ring-blue-100' 
+                        : 'border-gray-300'
+                    }`}
                     rows={3}
                   />
                 </div>
@@ -538,7 +670,7 @@ const CollaborationPage: React.FC = () => {
                 <div className="flex justify-end">
                   <button
                     onClick={handleAddNote}
-                    disabled={!newNote.trim() || addingNote}
+                    disabled={!newNote.trim() || !selectedVendor || addingNote}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {addingNote ? 'Adding...' : 'Add Note'}
@@ -547,48 +679,160 @@ const CollaborationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Vendor Notes List */}
-            <div className="space-y-4">
-              {vendorNotes.map(note => (
-                <div
-                  key={note._id}
-                  className="bg-white rounded-lg border border-gray-200 p-4"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">
-                        {note.authorName}
-                      </span>
-                      {note.rating && (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-yellow-400">★</span>
-                          <span className="text-sm text-gray-600">{note.rating}/5</span>
+            {/* Vendor Notes by Vendor */}
+            <div className="space-y-6">
+              {/* Selected Vendors First */}
+              {selectedProviders.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Selected Vendors</h3>
+                  {selectedProviders.map(selectedProvider => {
+                    const vendorNotes = groupedNotes[selectedProvider.id] || [];
+                    const vendorInfo = getVendorInfo(selectedProvider.id);
+                    return (
+                      <div key={selectedProvider.id} className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            {vendorInfo.image && (
+                              <img src={vendorInfo.image} alt={vendorInfo.name} className="w-12 h-12 rounded-lg object-cover" />
+                            )}
+                            <div>
+                              <h4 className="font-medium text-gray-900">{vendorInfo.name}</h4>
+                              <p className="text-sm text-gray-600">{vendorInfo.category}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                              ✓ Selected - ${selectedProvider.price.toLocaleString()}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {vendorNotes.length} note{vendorNotes.length !== 1 ? 's' : ''}
+                            </span>
+                            {/* Plus icon for adding notes */}
+                            <button
+                              onClick={() => handleQuickNote(selectedProvider.id, selectedProvider.name)}
+                              className="bg-blue-100 hover:bg-blue-200 text-blue-600 p-1 rounded-full transition-colors"
+                              title="Add note"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 4v16m8-8H4"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {new Date(note.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  
-                  <p className="text-gray-700 mb-3">{note.note}</p>
-                  
-                  {note.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {note.tags.map(tag => (
-                        <span
-                          key={tag}
-                          className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                        
+                        {vendorNotes.length > 0 && (
+                          <div className="space-y-3">
+                            {vendorNotes.map(note => (
+                              <div key={note._id} className="bg-white rounded-lg p-3 border border-green-200">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-medium text-gray-900">{note.authorName}</span>
+                                    {note.rating && (
+                                      <div className="flex items-center space-x-1">
+                                        <span className="text-yellow-400">★</span>
+                                        <span className="text-sm text-gray-600">{note.rating}/5</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-gray-500">
+                                    {new Date(note.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-gray-700 mb-2">{note.note}</p>
+                                {note.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {note.tags.map(tag => (
+                                      <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-              
-              {vendorNotes.length === 0 && (
+              )}
+
+              {/* Other Vendors with Notes */}
+              {Object.keys(groupedNotes).filter(vendorId => 
+                !selectedProviders.some(sp => sp.id === vendorId)
+              ).length > 0 && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Other Vendors</h3>
+                  {Object.entries(groupedNotes)
+                    .filter(([vendorId]) => !selectedProviders.some(sp => sp.id === vendorId))
+                    .map(([vendorId, notes]) => {
+                      const vendorInfo = getVendorInfo(vendorId);
+                      return (
+                                                 <div key={vendorId} className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              {vendorInfo.image && (
+                                <img src={vendorInfo.image} alt={vendorInfo.name} className="w-12 h-12 rounded-lg object-cover" />
+                              )}
+                              <div>
+                                <h4 className="font-medium text-gray-900">{vendorInfo.name}</h4>
+                                <p className="text-sm text-gray-600">{vendorInfo.category}</p>
+                              </div>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              {notes.length} note{notes.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {notes.map(note => (
+                              <div key={note._id} className="bg-gray-50 rounded-lg p-3">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-medium text-gray-900">{note.authorName}</span>
+                                    {note.rating && (
+                                      <div className="flex items-center space-x-1">
+                                        <span className="text-yellow-400">★</span>
+                                        <span className="text-sm text-gray-600">{note.rating}/5</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-gray-500">
+                                    {new Date(note.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-gray-700 mb-2">{note.note}</p>
+                                {note.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {note.tags.map(tag => (
+                                      <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {Object.keys(groupedNotes).length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <p>No vendor notes yet</p>
                   <p className="text-sm mt-1">Add your first note above!</p>
@@ -598,12 +842,12 @@ const CollaborationPage: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'edit-event' && (
+        {activeTab === 'edit-event' && event && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Event Details</h3>
               <EventForm
-                initialValues={mockEvent}
+                initialValues={event}
                 onSubmit={handleEditEvent}
                 isExistingEvent={true}
               />
@@ -612,82 +856,15 @@ const CollaborationPage: React.FC = () => {
         )}
 
         {/* Provider Detail Modal */}
-        {selectedProviderDetail && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">{selectedProviderDetail.name}</h3>
-                  <button
-                    onClick={() => setSelectedProviderDetail(null)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <img
-                      src={selectedProviderDetail.image}
-                      alt={selectedProviderDetail.name}
-                      className="w-full h-64 object-cover rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-gray-900 mb-2">About</h4>
-                      <p className="text-gray-600">{selectedProviderDetail.description}</p>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-gray-900 mb-2">Category</h4>
-                      <p className="text-gray-600">{selectedProviderDetail.category}</p>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-gray-900 mb-2">Rating</h4>
-                      <div className="flex items-center">
-                        <span className="text-yellow-400 mr-1">★</span>
-                        <span className="text-gray-600">{selectedProviderDetail.rating}/5</span>
-                      </div>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-gray-900 mb-2">Price</h4>
-                      <p className="text-gray-600">${selectedProviderDetail.price.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    onClick={() => setSelectedProviderDetail(null)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleSelectProvider({
-                        id: selectedProviderDetail.id,
-                        name: selectedProviderDetail.name,
-                        price: selectedProviderDetail.price,
-                        category: selectedProviderDetail.category,
-                        image: selectedProviderDetail.image
-                      });
-                      setSelectedProviderDetail(null);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {selectedProviders.find(p => p.id === selectedProviderDetail.id) ? 'Remove' : 'Select'} Provider
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {selectedProviderDetail && event && (
+          <ProviderDetail
+            provider={selectedProviderDetail}
+            onClose={() => setSelectedProviderDetail(null)}
+            onSelectOffer={handleSelectOffer}
+            guestCount={event.guestCount}
+            isPerPerson={selectedProviderDetail.category === ProviderCategory.CATERING}
+            selectedOfferId={selectedProviders.find(p => p.id === selectedProviderDetail.id)?.offerName}
+          />
         )}
       </div>
     } />

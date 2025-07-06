@@ -416,7 +416,7 @@ export default function collaborationRoutes(app) {
       const vendorNote = {
         collaborationId: new ObjectId(id),
         eventId: collaboration.eventId,
-        vendorId: new ObjectId(vendorId),
+        vendorId: vendorId, // Store as string (supports both mock IDs like "venue-1" and ObjectIds)
         authorId: userId,
         note: note.trim(),
         rating: rating || null,
@@ -473,7 +473,7 @@ export default function collaborationRoutes(app) {
       // Build query
       const query = { collaborationId: new ObjectId(id) };
       if (vendorId) {
-        query.vendorId = new ObjectId(vendorId);
+        query.vendorId = vendorId; // Use string comparison (supports both mock IDs and ObjectIds)
       }
       
       // Get vendor notes
