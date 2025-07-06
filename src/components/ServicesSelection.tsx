@@ -26,6 +26,8 @@ interface ServicesSelectionProps {
     suggestion: string;
     minPrice: number;
   }[];
+  onQuickNote?: (providerId: string, providerName: string) => void;
+  vendorNotes?: Record<string, number>;
 }
 
 function ServicesSelection({
@@ -43,7 +45,9 @@ function ServicesSelection({
   handleSubmit,
   budgetImpact,
   showBudgetAlert,
-  budgetSuggestions
+  budgetSuggestions,
+  onQuickNote,
+  vendorNotes
 }: ServicesSelectionProps) {
   const handleSetActiveCategory = (category: ProviderCategory) => {
     setActiveCategory(category);
@@ -335,15 +339,7 @@ function ServicesSelection({
                             ? "border-red-200 bg-red-50 hover:border-red-300"
                             : "border-gray-200 bg-white hover:border-primary-200"
                         }`}
-                        onClick={() =>
-                          handleSelectProvider({
-                            id: provider.id,
-                            name: provider.name,
-                            price: provider.price,
-                            category: provider.category,
-                            image: provider.image,
-                          })
-                        }
+                        onClick={() => handleViewProviderDetail(provider)}
                       >
                         <div className="flex items-center mb-3">
                           <img
@@ -378,24 +374,117 @@ function ServicesSelection({
                           >
                             {displayPrice}
                           </span>
-                          <div className="flex items-center">
-                            {isSelected && (
-                              <span className="bg-primary-100 text-primary-600 text-xs px-2 py-1 rounded-full mr-2">
-                                Selected
-                              </span>
-                            )}
+                          <div className="flex items-center space-x-2">
                             {isOverBudgetItem && !isSelected && (
-                              <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full mr-2">
+                              <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
                                 Over budget
                               </span>
                             )}
-                            {hasOffers && (
+                            
+                            {/* Info icon for detailed view */}
+                            <button
+                              onClick={(e: any) => {
+                                e.stopPropagation();
+                                handleViewProviderDetail(provider);
+                              }}
+                              className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-1 rounded-full transition-colors"
+                              title="View details"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                            </button>
+
+                            {/* Selection icons */}
+                            {isSelected ? (
+                              <>
+                                {/* Quick Note Icon for Selected Vendors */}
+                                {onQuickNote && (
+                                  <button
+                                    onClick={(e: any) => {
+                                      e.stopPropagation();
+                                      onQuickNote(provider.id, provider.name);
+                                    }}
+                                    className="bg-blue-100 hover:bg-blue-200 text-blue-600 p-1 rounded-full transition-colors relative"
+                                    title="Add quick note"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-4 w-4"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                      />
+                                    </svg>
+                                    {/* Note count badge */}
+                                    {vendorNotes && vendorNotes[provider.id] && (
+                                      <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                        {vendorNotes[provider.id]}
+                                      </div>
+                                    )}
+                                  </button>
+                                )}
+                                
+                                {/* Remove Button */}
+                                <button
+                                  onClick={(e: any) => {
+                                    e.stopPropagation();
+                                    handleSelectProvider({
+                                      id: provider.id,
+                                      name: provider.name,
+                                      price: provider.price,
+                                      category: provider.category,
+                                      image: provider.image,
+                                    });
+                                  }}
+                                  className="bg-red-100 hover:bg-red-200 text-red-600 p-1 rounded-full transition-colors"
+                                  title="Remove from selection"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </button>
+                              </>
+                            ) : (
                               <button
                                 onClick={(e: any) => {
                                   e.stopPropagation();
-                                  handleViewProviderDetail(provider);
+                                  handleSelectProvider({
+                                    id: provider.id,
+                                    name: provider.name,
+                                    price: provider.price,
+                                    category: provider.category,
+                                    image: provider.image,
+                                  });
                                 }}
-                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs p-1 rounded-full"
+                                className="bg-primary-100 hover:bg-primary-200 text-primary-600 p-1 rounded-full transition-colors"
+                                title="Add to selection"
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -408,7 +497,7 @@ function ServicesSelection({
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    d="M12 4v16m8-8H4"
                                   />
                                 </svg>
                               </button>

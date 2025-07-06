@@ -1,20 +1,34 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
+// Define types locally to avoid import issues
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  accountType: 'client' | 'planner';
+  plannerProfile?: PlannerProfile;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface PlannerProfile {
+  businessName: string;
+  services: string[];
+  experience: string;
+  description: string;
+  pricing: string;
+  portfolio: string[];
+  rating: number;
+  reviewCount: number;
+  isAvailable: boolean;
+}
+
 // Define the base URL for API calls
 // Use environment variables or fallback to the actual server URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 console.log('AuthContext using API URL:', API_URL);
-
-// Define User type
-interface User {
-  _id: string;
-  name: string;
-  email: string;
-  createdAt?: string; // Add createdAt as an optional field
-  updatedAt?: string; // Add updatedAt as an optional field
-}
 
 // Define Auth Context state
 interface AuthContextType {
@@ -22,12 +36,13 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, accountType: 'client' | 'planner', plannerProfile?: PlannerProfile) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
   guestMode: boolean;
   setGuestMode: (value: boolean) => void;
   clearError: () => void;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 // Create context
@@ -117,7 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [guestMode]);
 
   // Register user
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string, accountType: 'client' | 'planner', plannerProfile?: PlannerProfile) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -142,7 +157,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const res = await axios.post(apiUrl, {
         name,
         email,
-        password
+        password,
+        accountType,
+        plannerProfile
       });
       
       setUser(res.data);
@@ -263,6 +280,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Clear error
   const clearError = () => setError(null);
 
+  // Update profile
+  const updateProfile = async (updates: Partial<User>) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Determine correct API URL based on environment
+      // For local development, explicitly target the correct port where your API is running
+      let apiUrl;
+      if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost') {
+          // Use the explicit port where your auth server is running
+          apiUrl = 'http://localhost:5001/api/auth/profile';
+          console.log('Using explicit local development auth endpoint in AuthContext');
+        } else {
+          // For production - use relative URL based on origin
+          apiUrl = `${window.location.origin}/api/auth/profile`;
+        }
+      } else {
+        apiUrl = '/api/auth/profile';
+      }
+      
+      // Use the correct update profile endpoint
+      const res = await axios.put(apiUrl, updates);
+      
+      setUser(res.data);
+    } catch (err: any) {
+      console.error('Profile update error:', err);
+      setError(err.response?.data?.message || 'Profile update failed. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     // @ts-ignore - Work around React 18 typing issue
     <AuthContext.Provider
@@ -276,7 +328,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         error,
         guestMode,
         setGuestMode,
-        clearError
+        clearError,
+        updateProfile
       }}
     >
       {children}
