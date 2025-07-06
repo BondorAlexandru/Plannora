@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { Layout } from '../../src/components/NextLayout';
 import { useAuth } from '../../src/contexts/NextAuthContext';
 import ChatInterface from '../../src/components/ChatInterface';
-import VendorManagement from '../../src/components/VendorManagement';
+import ServicesSelection from '../../src/components/ServicesSelection';
+import { Event, SelectedProvider } from '../../src/types';
+import { Provider, ProviderCategory, providers } from '../../src/data/mockData';
+import EventForm from '../../src/components/EventForm';
 
 interface Collaboration {
   _id: string;
@@ -46,12 +49,17 @@ const CollaborationPage: React.FC = () => {
   const [vendorNotes, setVendorNotes] = useState<VendorNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'vendors'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'vendors' | 'edit-event'>('chat');
   const [newNote, setNewNote] = useState('');
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [addingNote, setAddingNote] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  
+  // ServicesSelection state
+  const [activeCategory, setActiveCategory] = useState<ProviderCategory | null>(null);
+  const [selectedProviders, setSelectedProviders] = useState<SelectedProvider[]>([]);
+  const [selectedProviderDetail, setSelectedProviderDetail] = useState<Provider | null>(null);
   
   const { user, getToken } = useAuth();
   const router = useRouter();
@@ -172,6 +180,89 @@ const CollaborationPage: React.FC = () => {
     'Premium',
     'Recommended'
   ];
+
+  // ServicesSelection functions
+  const handleSelectProvider = (provider: SelectedProvider) => {
+    setSelectedProviders(prev => {
+      const exists = prev.find(p => p.id === provider.id);
+      if (exists) {
+        return prev.filter(p => p.id !== provider.id);
+      }
+      return [...prev, provider];
+    });
+  };
+
+  const handleViewProviderDetail = (provider: Provider) => {
+    setSelectedProviderDetail(provider);
+  };
+
+  const calculateTotal = () => {
+    return selectedProviders.reduce((total, provider) => total + provider.price, 0);
+  };
+
+  const budget = collaboration?.budget || 10000;
+  const currentTotal = calculateTotal();
+  const percentUsed = budget > 0 ? (currentTotal / budget) * 100 : 0;
+  const budgetRemaining = budget - currentTotal;
+  const isOverBudget = budget > 0 && currentTotal > budget;
+
+  // Create mock event object for ServicesSelection and EventForm
+  const mockEvent: Event = {
+    id: collaboration?._id || '',
+    name: collaboration?.eventName || '',
+    date: collaboration?.eventDate || '',
+    location: collaboration?.eventLocation || '',
+    eventType: 'Wedding',
+    guestCount: 100,
+    budget: budget,
+    selectedProviders: selectedProviders
+  };
+
+  // Handle event editing
+  const handleEditEvent = async (updatedEvent: Partial<Event>) => {
+    if (!collaboration || !user) return;
+    
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+      
+      // Update the collaboration with new event details
+      const response = await fetch(`${baseUrl}/api/collaborations/${collaboration._id}/event`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          eventName: updatedEvent.name,
+          eventDate: updatedEvent.date,
+          eventLocation: updatedEvent.location,
+          eventType: updatedEvent.eventType,
+          guestCount: updatedEvent.guestCount,
+          budget: updatedEvent.budget
+        })
+      });
+      
+      if (response.ok) {
+        // Update local collaboration state
+        setCollaboration(prev => prev ? {
+          ...prev,
+          eventName: updatedEvent.name || prev.eventName,
+          eventDate: updatedEvent.date || prev.eventDate,
+          eventLocation: updatedEvent.location || prev.eventLocation,
+          budget: updatedEvent.budget || prev.budget
+        } : null);
+        
+        alert('Event details updated successfully!');
+        setActiveTab('chat'); // Return to chat after saving
+      } else {
+        throw new Error('Failed to update event details');
+      }
+    } catch (err) {
+      console.error('Error updating event:', err);
+      alert(err instanceof Error ? err.message : 'Failed to update event details');
+    }
+  };
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev => 
@@ -335,6 +426,16 @@ const CollaborationPage: React.FC = () => {
               >
                 Vendor Management
               </button>
+              <button
+                onClick={() => setActiveTab('edit-event')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'edit-event'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Edit Event
+              </button>
             </nav>
           </div>
         </div>
@@ -347,10 +448,22 @@ const CollaborationPage: React.FC = () => {
         )}
 
         {activeTab === 'vendors' && (
-          <VendorManagement
-            collaborationId={collaboration._id}
-            eventId={collaboration.eventId}
-            userBudget={collaboration.budget || 10000}
+          <ServicesSelection
+            event={mockEvent}
+            providers={providers}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            handleSelectProvider={handleSelectProvider}
+            handleViewProviderDetail={handleViewProviderDetail}
+            calculateTotal={calculateTotal}
+            percentUsed={percentUsed}
+            budgetRemaining={budgetRemaining}
+            isOverBudget={isOverBudget}
+            setStep={() => {}}
+            handleSubmit={() => {}}
+            budgetImpact={null}
+            showBudgetAlert={false}
+            budgetSuggestions={[]}
           />
         )}
 
@@ -481,6 +594,98 @@ const CollaborationPage: React.FC = () => {
                   <p className="text-sm mt-1">Add your first note above!</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'edit-event' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Event Details</h3>
+              <EventForm
+                initialValues={mockEvent}
+                onSubmit={handleEditEvent}
+                isExistingEvent={true}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Provider Detail Modal */}
+        {selectedProviderDetail && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">{selectedProviderDetail.name}</h3>
+                  <button
+                    onClick={() => setSelectedProviderDetail(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <img
+                      src={selectedProviderDetail.image}
+                      alt={selectedProviderDetail.name}
+                      className="w-full h-64 object-cover rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">About</h4>
+                      <p className="text-gray-600">{selectedProviderDetail.description}</p>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">Category</h4>
+                      <p className="text-gray-600">{selectedProviderDetail.category}</p>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">Rating</h4>
+                      <div className="flex items-center">
+                        <span className="text-yellow-400 mr-1">★</span>
+                        <span className="text-gray-600">{selectedProviderDetail.rating}/5</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-900 mb-2">Price</h4>
+                      <p className="text-gray-600">${selectedProviderDetail.price.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    onClick={() => setSelectedProviderDetail(null)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSelectProvider({
+                        id: selectedProviderDetail.id,
+                        name: selectedProviderDetail.name,
+                        price: selectedProviderDetail.price,
+                        category: selectedProviderDetail.category,
+                        image: selectedProviderDetail.image
+                      });
+                      setSelectedProviderDetail(null);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    {selectedProviders.find(p => p.id === selectedProviderDetail.id) ? 'Remove' : 'Select'} Provider
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

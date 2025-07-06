@@ -70,6 +70,77 @@ export default function collaborationRoutes(app) {
     }
   });
 
+  // Update collaboration event details
+  app.patch('/api/collaborations/:id/event', authenticate, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { eventName, eventDate, eventLocation, eventType, guestCount, budget } = req.body;
+      
+      const { db } = await connectToMongoDB();
+      if (!db) {
+        return res.status(500).json({ message: 'Database connection failed' });
+      }
+      
+      const collaborationsCollection = db.collection('collaborations');
+      const eventsCollection = db.collection('events');
+      const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
+      
+      // Verify user is part of this collaboration
+      const collaboration = await collaborationsCollection.findOne({
+        _id: new ObjectId(id),
+        $or: [
+          { clientId: userId },
+          { plannerId: userId }
+        ]
+      });
+      
+      if (!collaboration) {
+        return res.status(404).json({ message: 'Collaboration not found or access denied' });
+      }
+      
+      // Update the event if it exists
+      if (collaboration.eventId) {
+        const eventUpdateData = {};
+        if (eventName) eventUpdateData.name = eventName;
+        if (eventDate) eventUpdateData.date = eventDate;
+        if (eventLocation) eventUpdateData.location = eventLocation;
+        if (eventType) eventUpdateData.eventType = eventType;
+        if (guestCount) eventUpdateData.guestCount = guestCount;
+        if (budget) eventUpdateData.budget = budget;
+        eventUpdateData.updatedAt = new Date();
+        
+        await eventsCollection.updateOne(
+          { _id: collaboration.eventId },
+          { $set: eventUpdateData }
+        );
+      }
+      
+      // Update collaboration fields
+      const collaborationUpdateData = {};
+      if (eventName) collaborationUpdateData.eventName = eventName;
+      if (eventDate) collaborationUpdateData.eventDate = eventDate;
+      if (eventLocation) collaborationUpdateData.eventLocation = eventLocation;
+      if (budget) collaborationUpdateData.budget = budget;
+      collaborationUpdateData.updatedAt = new Date();
+      
+      const result = await collaborationsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: collaborationUpdateData }
+      );
+      
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ message: 'Collaboration not found' });
+      }
+      
+      return res.status(200).json({ 
+        message: 'Event details updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating collaboration event:', error);
+      return res.status(500).json({ message: 'Error updating collaboration event', error: error.message });
+    }
+  });
+
   // Archive/unarchive a collaboration
   app.patch('/api/collaborations/:id/archive', authenticate, async (req, res) => {
     try {

@@ -384,8 +384,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
     }
   };
 
+  // Dynamic height based on message count
+  const getMessageCount = () => messages.length;
+  const getHeightClass = () => {
+    const messageCount = getMessageCount();
+    if (messageCount === 0) return 'h-64'; // Small for empty chat
+    if (messageCount < 5) return 'h-80'; // Medium for few messages  
+    if (messageCount < 15) return 'h-96'; // Default for moderate messages
+    if (messageCount < 30) return 'h-[32rem]'; // Large for many messages
+    return 'h-[40rem]'; // Extra large for lots of messages
+  };
+
   return (
-    <div className="flex flex-col h-96 bg-white rounded-lg border border-gray-200">
+    <div className={`flex flex-col ${getHeightClass()} bg-white rounded-lg border border-gray-200`}>
       {/* Chat Header */}
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
         <div className="flex items-center justify-between">

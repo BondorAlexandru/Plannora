@@ -176,7 +176,7 @@ export default function EventForm({ initialValues, onSubmit, isExistingEvent }: 
             type="submit"
             className="w-full bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white font-bold py-3 px-6 rounded-full shadow-button transform transition hover:-translate-y-1"
           >
-            {isExistingEvent ? "Continue to Select Services" : "Create New Event"}
+            {isExistingEvent ? "Save Changes" : "Create New Event"}
           </button>
         </div>
       )}
