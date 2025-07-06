@@ -17,8 +17,7 @@ const API_URL = (() => {
 // Configure axios defaults for cookies
 axios.defaults.withCredentials = true;
 
-// For debugging
-console.log('EventService using API URL:', API_URL);
+// Configure API URL for different environments
 
 // Helper function to ensure auth token is set
 const ensureAuthToken = () => {
@@ -48,7 +47,7 @@ export const getAllEvents = async (isAuthenticated: boolean): Promise<Event[]> =
     const response = await axios.get(`${API_URL}/events`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching all events:', error);
+
     return [];
   }
 };
@@ -63,7 +62,7 @@ export const getEventsForStep1 = async (isAuthenticated: boolean): Promise<Event
     const response = await axios.get(`${API_URL}/events`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching events for step 1:', error);
+
     return [];
   }
 };
@@ -76,18 +75,18 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
       ensureAuthToken();
       try {
         const response = await axios.get(`${API_URL}/events/${eventId}`);
-        console.log('Event loaded from API successfully:', response.data);
+
         
         // Save to localStorage for easy access later
         localStorage.setItem('event', JSON.stringify(response.data));
         
         return response.data;
       } catch (apiError: any) {
-        console.error(`API error fetching event with ID ${eventId}:`, apiError);
+
         
         // Check if it's an authentication error (401)
         if (apiError.response && apiError.response.status === 401) {
-          console.log('Authentication error - token may have expired');
+
           // Don't clear token here, let AuthContext handle this
           // Just return null so the UI can handle accordingly
           return null;
@@ -104,7 +103,7 @@ export const getEventById = async (eventId: string, isAuthenticated: boolean): P
       
       // If we have eventId and it matches the localStorage event, return it
       if (parsedEvent && (parsedEvent._id === eventId || parsedEvent.id === eventId)) {
-        console.log('Found matching event in localStorage');
+
         return parsedEvent;
       }
     }
@@ -132,18 +131,18 @@ export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean, f
   ensureAuthToken();
   try {
     // First try to get the current event
-    console.log('Attempting to get current event');
+
     let currentEvent = null;
     
     try {
       const currentResponse = await axios.get(`${API_URL}/events/current`);
       if (currentResponse.data) {
-        console.log('Found current event:', currentResponse.data);
+
         return currentResponse.data;
       }
     } catch (error: any) {
       // If there's an error with current event, try getting all events
-      console.log('Error getting current event, will check all events instead:', error?.message);
+
     }
     
     // Then try to get all events
@@ -151,11 +150,11 @@ export const getEvent = async (isAuthenticated: boolean, isGuestMode: boolean, f
     
     // If we have events, return the first one
     if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-      console.log('Found existing event:', response.data[0]);
+
       return response.data[0];
     } else {
       // No events found, create a default one
-      console.log('No events found, creating a default event');
+
       const defaultEvent: Event = {
         name: 'New Event',
         eventType: '',
@@ -186,7 +185,7 @@ export const saveEventStep = async (step: number, isAuthenticated: boolean, isGu
     try {
       // Make sure we're sending the correct format the API expects
       const payload = { step: parseInt(step.toString()), eventId };
-      console.log('Sending step payload:', payload);
+
       await axios.patch(`${API_URL}/events/step`, payload);
     } catch (error) {
       console.error('Error saving event step to server:', error);
@@ -221,12 +220,12 @@ export const createNewEvent = async (event: Event, isAuthenticated: boolean): Pr
       newEvent.budget = parseFloat(newEvent.budget);
     }
     
-    console.log('Creating new event with data:', newEvent);
+
     
     // Always use /events/new endpoint to ensure a new event is created
     // and not overwriting an existing one with the same name
     const response = await axios.post(`${API_URL}/events/new`, newEvent);
-    console.log('New event created response:', response.data);
+
     return response.data;
   } catch (error) {
     console.error('Error creating new event:', error);
@@ -268,9 +267,9 @@ export const updateEventById = async (eventId: string, event: Event, isAuthentic
   
   try {
     // Send PUT request - the server will handle upsert if needed
-    console.log(`Sending PUT request to update event ${eventId}`, eventToUpdate);
+
     const response = await axios.put(`${API_URL}/events/${eventId}`, eventToUpdate);
-    console.log('Update response:', response.data);
+
     return response.data;
   } catch (error: any) {
     console.error(`Error updating event with ID ${eventId}:`, error);
@@ -307,7 +306,7 @@ export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestM
       const eventId = String(event._id || event.id);
       try {
         // Use PUT for existing events
-        console.log(`Saving existing event with ID ${eventId} using PUT`);
+
         const updatedEvent = await updateEventById(eventId, event, isAuthenticated);
         if (updatedEvent) {
           return updatedEvent;
@@ -323,7 +322,7 @@ export const saveEvent = async (event: Event, isAuthenticated: boolean, isGuestM
     } else {
       try {
         // Use POST to /events/new to ensure we create a new event and don't overwrite existing ones
-        console.log("Creating new event using POST to /events/new");
+
         // Remove any ID fields to ensure we create a new document
         const newEvent = { ...event };
         delete newEvent._id;
@@ -354,7 +353,7 @@ export const saveActiveCategory = async (category: string, isAuthenticated: bool
       const payload = eventId 
         ? { activeCategory: category, eventId: eventId.toString() } 
         : { activeCategory: category };
-      console.log('Sending category payload:', payload);
+
       await axios.patch(`${API_URL}/events/category`, payload);
     } catch (error) {
       console.error('Error saving active category to server:', error);

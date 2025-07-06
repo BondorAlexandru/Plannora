@@ -39,7 +39,7 @@ export const useVendorSelection = (
         })
       });
     } catch (err) {
-      console.error('Error saving provider selection:', err);
+      // Silently handle error - provider selection will be retried on next action
     }
   };
 

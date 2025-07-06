@@ -41,6 +41,7 @@ build
 # Cache
 .eslintcache
 .stylelintcache
+*.tsbuildinfo
 
 # Coverage directory used by tools like istanbul
 coverage

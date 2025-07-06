@@ -84,11 +84,9 @@ export const useCollaboration = (collaborationId: string | string[] | undefined)
           updatedAt: new Date().toISOString()
         } : null);
       } else {
-        console.error('Failed to archive collaboration');
         alert('Failed to archive collaboration');
       }
     } catch (error) {
-      console.error('Error archiving collaboration:', error);
       alert('Error archiving collaboration');
     } finally {
       setArchiving(false);

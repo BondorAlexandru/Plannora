@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (window.location.hostname === 'localhost') {
             // Use the explicit port where your auth server is running
             apiUrl = 'http://localhost:5001/api/auth/profile';
-            console.log('Using explicit local development auth endpoint');
+
           } else {
             // For production - use relative URL based on origin
             apiUrl = `${window.location.origin}/api/auth/profile`;
@@ -116,14 +116,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         
         // Try to get user profile
-        console.log(`Calling profile API at: ${apiUrl}`);
         const res = await axios.get(apiUrl);
-        console.log('Profile API response:', res.data);
         
         setUser(res.data);
         setIsAuthenticated(true);
       } catch (err) {
-        console.error('Profile loading error:', err);
         if (typeof window !== 'undefined') {
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
@@ -156,7 +153,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (window.location.hostname === 'localhost') {
           // Use the explicit port where your auth server is running
           apiUrl = 'http://localhost:5001/api/auth/register';
-          console.log('Using explicit local development auth endpoint');
         } else {
           // For production - use relative URL based on origin
           apiUrl = `${window.location.origin}/api/auth/register`;
@@ -165,7 +161,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         apiUrl = '/api/auth/register';
       }
       
-      console.log(`API URL for register: ${apiUrl}`);
+
       
       // Use the correct registration endpoint
       const requestData: any = {
@@ -193,7 +189,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       setGuestMode(false);
     } catch (err: any) {
-      console.error('Registration error:', err);
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
       throw err;
     } finally {
@@ -207,7 +202,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setError(null);
     
     try {
-      console.log(`Attempting login with email: ${email}`);
       
       // Determine correct API URL based on environment
       // For local development, explicitly target the correct port where your API is running
@@ -216,7 +210,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (window.location.hostname === 'localhost') {
           // Use the explicit port where your auth server is running
           apiUrl = 'http://localhost:5001/api/auth/login';
-          console.log('Using explicit local development auth endpoint');
         } else {
           // For production - use relative URL based on origin
           apiUrl = `${window.location.origin}/api/auth/login`;
@@ -225,10 +218,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         apiUrl = '/api/auth/login';
       }
       
-      console.log(`API URL for login: ${apiUrl}`);
+
       
       const response = await axios.post(apiUrl, { email, password });
-      console.log('Login response:', response.data);
       
       if (response.data) {
         setUser(response.data);
@@ -243,7 +235,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setGuestMode(false);
       }
     } catch (err: any) {
-      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
       throw err;
     } finally {

@@ -51,7 +51,6 @@ export const useEventEdit = (
         throw new Error('Failed to update event details');
       }
     } catch (err) {
-      console.error('Error updating event:', err);
       alert(err instanceof Error ? err.message : 'Failed to update event details');
       return false;
     }

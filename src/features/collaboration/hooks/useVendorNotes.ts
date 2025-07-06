@@ -38,7 +38,7 @@ export const useVendorNotes = (
         const data = await response.json();
         setVendorNotes(data);
       } catch (err) {
-        console.error('Error fetching vendor notes:', err);
+        // Silently handle error - vendor notes are not critical for page functionality
       }
     };
 
@@ -83,7 +83,6 @@ export const useVendorNotes = (
       setVendorNotes(prev => [newVendorNote, ...prev]);
       return true;
     } catch (err) {
-      console.error('Error adding note:', err);
       alert(err instanceof Error ? err.message : 'Failed to add note');
       return false;
     } finally {
@@ -132,20 +131,15 @@ export const useVendorNotes = (
       }
       
       const updatedNote = await response.json();
-      console.log('Backend response:', updatedNote);
-      console.log('Current vendorNotes before update:', vendorNotes);
-      console.log('Editing note ID:', editingNote);
+
       
-      setVendorNotes(prev => {
-        const updated = prev.map(note => 
-          note._id === editingNote ? updatedNote : note
+              setVendorNotes(prev => 
+          prev.map(note => 
+            note._id === editingNote ? updatedNote : note
+          )
         );
-        console.log('Updated vendorNotes:', updated);
-        return updated;
-      });
       handleCancelEdit();
     } catch (err) {
-      console.error('Error updating note:', err);
       alert(err instanceof Error ? err.message : 'Failed to update note');
     } finally {
       setUpdatingNote(false);
@@ -176,7 +170,6 @@ export const useVendorNotes = (
       
       setVendorNotes(prev => prev.filter(note => note._id !== noteId));
     } catch (err) {
-      console.error('Error deleting note:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete note');
     } finally {
       setDeletingNote(null);
