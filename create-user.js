@@ -13,17 +13,13 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env.development') });
 
 async function createTestUser() {
-  console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Found' : 'Not found');
-  
   if (!process.env.MONGODB_URI) {
-    console.error('MONGODB_URI environment variable is not set');
     return;
   }
   
   const client = new MongoClient(process.env.MONGODB_URI);
   try {
     await client.connect();
-    console.log('Connected to MongoDB successfully');
     
     const db = client.db('plannora');
     const usersCollection = db.collection('users');
@@ -32,7 +28,6 @@ async function createTestUser() {
     const existingUser = await usersCollection.findOne({ email: 'test@example.com' });
     
     if (existingUser) {
-      console.log('Test user already exists:', existingUser.email);
       return;
     }
     
@@ -47,8 +42,6 @@ async function createTestUser() {
       createdAt: new Date(),
       updatedAt: new Date()
     });
-    
-    console.log('Test user created successfully with ID:', result.insertedId);
     
   } catch (error) {
     console.error('Error:', error);

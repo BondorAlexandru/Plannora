@@ -13,11 +13,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env.production') });
 
 async function testConnection() {
-  console.log('Testing MongoDB connection...');
-  console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Found' : 'Not found');
-  
   if (!process.env.MONGODB_URI) {
-    console.error('MONGODB_URI environment variable is not set');
     return;
   }
   
@@ -28,18 +24,13 @@ async function testConnection() {
   });
   
   try {
-    console.log('Attempting to connect to MongoDB...');
     await client.connect();
-    console.log('✅ Successfully connected to MongoDB!');
     
     const db = client.db(process.env.DB_NAME || 'plannora');
-    console.log(`Connected to database: ${process.env.DB_NAME || 'plannora'}`);
     
     // List collections to verify further access
-    const collections = await db.listCollections().toArray();
-    console.log('Collections in database:');
+    const collections = await db.listCollections().toArray(); 
     if (collections.length === 0) {
-      console.log('  No collections found');
     } else {
       collections.forEach(collection => {
         console.log(`  - ${collection.name}`);

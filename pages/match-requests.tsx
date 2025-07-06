@@ -278,14 +278,15 @@ const MatchRequestsPage: React.FC = () => {
           {/* Match Requests List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
             {currentRequests.map((request) => (
-              <MatchRequestCard
-                key={request._id}
-                matchRequest={request}
-                isReceived={activeTab === 'received'}
-                onAccept={activeTab === 'received' ? handleAccept : undefined}
-                onDecline={activeTab === 'received' ? handleDecline : undefined}
-                isLoading={processingRequest === request._id}
-              />
+              <div key={request._id}>
+                <MatchRequestCard
+                  matchRequest={request}
+                  isReceived={activeTab === 'received'}
+                  onAccept={activeTab === 'received' ? handleAccept : undefined}
+                  onDecline={activeTab === 'received' ? handleDecline : undefined}
+                  isLoading={processingRequest === request._id}
+                />
+              </div>
             ))}
           </div>
 
