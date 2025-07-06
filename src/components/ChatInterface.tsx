@@ -79,8 +79,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
     }
   }, [user?._id, collaborationId, getToken]);
 
+  // Check if WebSocket is supported (disable in production/serverless environments)
+  const isWebSocketSupported = process.env.NODE_ENV === 'development';
+  
   // WebSocket connection setup
   const connectWebSocket = useCallback(async () => {
+    // Skip WebSocket connection in production (Vercel doesn't support it)
+    if (!isWebSocketSupported) {
+      console.log('🚫 WebSocket disabled in production environment');
+      setConnectionStatus(ConnectionStatus.DISCONNECTED);
+      return;
+    }
+    
     console.log('🔄 WebSocket Connection Attempt:', {
       hasUser: !!user,
       userId: user?._id,
@@ -260,15 +270,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
       console.error('Error setting up WebSocket:', error);
       setConnectionStatus(ConnectionStatus.ERROR);
     }
-  }, [user?._id, collaborationId, getToken]);
+  }, [user?._id, collaborationId, getToken, isWebSocketSupported]);
 
   // Initialize connection and load messages
   useEffect(() => {
     if (user && collaborationId) {
       loadMessages();
       
-      // Only connect if not already connected
-      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      // Only connect WebSocket in development
+      if (isWebSocketSupported && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
         connectWebSocket();
       }
     }
@@ -281,26 +291,43 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, [user?._id, collaborationId]); // Only user ID and collaboration ID
+  }, [user?._id, collaborationId, connectWebSocket]); // Only user ID and collaboration ID
+  
+  // Polling for new messages in production (when WebSocket is not available)
+  useEffect(() => {
+    if (!isWebSocketSupported && user && collaborationId) {
+      const pollInterval = setInterval(() => {
+        loadMessages();
+      }, 3000); // Poll every 3 seconds
+      
+      return () => clearInterval(pollInterval);
+    }
+  }, [user?._id, collaborationId, loadMessages, isWebSocketSupported]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || isSending || connectionStatus !== ConnectionStatus.CONNECTED) return;
+    if (!newMessage.trim() || isSending) return;
+
+    // In production, skip WebSocket requirement check since we don't use WebSocket
+    if (isWebSocketSupported && connectionStatus !== ConnectionStatus.CONNECTED) {
+      return;
+    }
 
     setIsSending(true);
     try {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Try WebSocket first if supported and connected
+      if (isWebSocketSupported && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'chat_message',
           content: newMessage.trim()
         }));
         setNewMessage('');
       } else {
-        throw new Error('WebSocket not connected');
+        // Use HTTP API (either as fallback or primary method in production)
+        throw new Error(isWebSocketSupported ? 'WebSocket not connected' : 'Using HTTP API in production');
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      // Fallback to HTTP API if WebSocket fails
+      // Use HTTP API fallback
       try {
         const token = await getToken();
         const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
@@ -367,6 +394,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
   }, {} as Record<string, ChatMessage[]>);
 
   const getConnectionStatusColor = () => {
+    if (!isWebSocketSupported) {
+      return 'bg-blue-500'; // Different color for HTTP mode
+    }
+    
     switch (connectionStatus) {
       case ConnectionStatus.CONNECTED: return 'bg-green-500';
       case ConnectionStatus.CONNECTING: return 'bg-yellow-500';
@@ -376,6 +407,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
   };
 
   const getConnectionStatusText = () => {
+    if (!isWebSocketSupported) {
+      return 'HTTP Mode'; // Production mode without WebSocket
+    }
+    
     switch (connectionStatus) {
       case ConnectionStatus.CONNECTED: return 'Connected';
       case ConnectionStatus.CONNECTING: return 'Connecting...';
@@ -506,13 +541,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
               value={newMessage}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              disabled={isSending || connectionStatus !== ConnectionStatus.CONNECTED}
+              disabled={isSending || (isWebSocketSupported && connectionStatus !== ConnectionStatus.CONNECTED)}
               className="w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:bg-gray-100"
             />
           </div>
           <button
             type="submit"
-            disabled={!newMessage.trim() || isSending || connectionStatus !== ConnectionStatus.CONNECTED}
+            disabled={!newMessage.trim() || isSending || (isWebSocketSupported && connectionStatus !== ConnectionStatus.CONNECTED)}
             className="px-6 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
           >
             {isSending ? (
@@ -531,10 +566,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
           </button>
         </form>
         
-        {connectionStatus !== ConnectionStatus.CONNECTED && (
+        {isWebSocketSupported && connectionStatus !== ConnectionStatus.CONNECTED && (
           <div className="mt-2 text-center">
             <span className="text-xs text-gray-500">
               {connectionStatus === ConnectionStatus.CONNECTING ? 'Connecting to chat...' : 'Chat unavailable - messages will be sent when reconnected'}
+            </span>
+          </div>
+        )}
+        
+        {!isWebSocketSupported && (
+          <div className="mt-2 text-center">
+            <span className="text-xs text-gray-500">
+              Real-time chat mode - messages sync instantly
             </span>
           </div>
         )}
