@@ -255,12 +255,13 @@ const PlannersPage: React.FC = () => {
           {/* Planners Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPlanners.map((planner) => (
-              <PlannerCard
-                key={planner.id}
-                planner={planner}
-                onSendRequest={handleSendRequest}
-                isRequestPending={sendingRequest === planner.id}
-              />
+              <div key={planner.id}>
+                <PlannerCard
+                  planner={planner}
+                  onSendRequest={handleSendRequest}
+                  isRequestPending={sendingRequest === planner.id}
+                />
+              </div>
             ))}
           </div>
 

@@ -260,14 +260,14 @@ export default function collaborationRoutes(app) {
       
       const userId = req.user._id === 'admin-id' ? 'admin-id' : new ObjectId(req.user._id);
       
-      // Verify user is part of this collaboration
+      // Verify user is part of this collaboration (allow archived collaborations)
       const collaboration = await collaborationsCollection.findOne({
         _id: new ObjectId(id),
         $or: [
           { clientId: userId },
           { plannerId: userId }
-        ],
-        status: 'active'
+        ]
+        // Remove status filter to allow access to archived collaborations
       });
       
       if (!collaboration) {

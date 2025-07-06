@@ -269,13 +269,14 @@ wss.on('connection', (ws, req) => {
               // Update user object with full information
               user = {
                 ...user,
+                _id: userId,
                 name: fullUser.name,
                 email: fullUser.email,
                 accountType: fullUser.accountType
               };
               
               console.log('👤 Full user info retrieved:', {
-                userId: user.id,
+                userId: userId,
                 name: user.name,
                 email: user.email
               });
@@ -336,9 +337,10 @@ wss.on('connection', (ws, req) => {
         const { db } = await connectToMongoDB();
         if (db) {
           // Save message to database
+          const userId = user._id || user.id;
           const chatMessage = {
             collaborationId: new ObjectId(collaborationId),
-            senderId: new ObjectId(user._id),
+            senderId: new ObjectId(userId),
             message: message.content.trim(),
             timestamp: new Date(),
             edited: false,

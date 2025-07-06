@@ -10,6 +10,7 @@ interface ChatMessage {
   edited: boolean;
   editedAt?: string;
   senderName: string;
+  isCurrentUser?: boolean;
 }
 
 interface ChatInterfaceProps {
@@ -60,14 +61,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setMessages(data.reverse()); // Reverse to show oldest first
+        // Backend already returns messages in chronological order (oldest first)
+        // Ensure isCurrentUser is set for each message (in case backend doesn't set it)
+        const messagesWithCurrentUser = data.map((message: ChatMessage) => ({
+          ...message,
+          isCurrentUser: message.isCurrentUser ?? (message.senderId === user?._id || message.senderId.toString() === user?._id?.toString())
+        }));
+        
+
+        
+        setMessages(messagesWithCurrentUser);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
       setIsLoadingMessages(false);
     }
-  }, [user, collaborationId, getToken]);
+  }, [user?._id, collaborationId, getToken]);
 
   // WebSocket connection setup
   const connectWebSocket = useCallback(async () => {
@@ -168,7 +178,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
                 console.log('⚠️ Message already exists, skipping duplicate:', data.message._id);
                 return prev;
               }
-              return [...prev, data.message];
+              
+              // Set isCurrentUser based on senderId comparison
+              const messageWithCurrentUser = {
+                ...data.message,
+                isCurrentUser: data.message.senderId === user?._id || data.message.senderId.toString() === user?._id?.toString()
+              };
+              
+
+              
+              return [...prev, messageWithCurrentUser];
             });
           } else if (data.type === 'error') {
             console.error('⚠️ WebSocket error message:', {
@@ -241,7 +260,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
       console.error('Error setting up WebSocket:', error);
       setConnectionStatus(ConnectionStatus.ERROR);
     }
-  }, [user, collaborationId, getToken]);
+  }, [user?._id, collaborationId, getToken]);
 
   // Initialize connection and load messages
   useEffect(() => {
@@ -262,7 +281,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, [user, collaborationId, loadMessages]); // Removed connectWebSocket from dependencies
+  }, [user?._id, collaborationId]); // Only user ID and collaboration ID
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,7 +322,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
               console.log('⚠️ Fallback message already exists, skipping duplicate:', newMessageData._id);
               return prev;
             }
-            return [...prev, newMessageData];
+            
+            // Ensure isCurrentUser is set for fallback messages
+            const messageWithCurrentUser = {
+              ...newMessageData,
+              isCurrentUser: newMessageData.isCurrentUser ?? (newMessageData.senderId === user?._id || newMessageData.senderId.toString() === user?._id?.toString())
+            };
+            
+            return [...prev, messageWithCurrentUser];
           });
           setNewMessage('');
         }
@@ -390,17 +416,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
                 
                 {/* Messages for this date */}
                 {dateMessages.map((message: ChatMessage) => {
-                  const isCurrentUser = message.senderId === user?._id || message.senderId.toString() === user?._id?.toString();
+                  // Use isCurrentUser from message if available, otherwise compute it
+                  const isCurrentUser = message.isCurrentUser ?? (message.senderId === user?._id || message.senderId.toString() === user?._id?.toString());
+                  
+
+
+                  
                   return (
                     <div
                       key={message._id}
-                      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-3`}
+                      className={`w-full flex mb-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                     >
                       <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${
                         isCurrentUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'
                       }`}>
                         {/* Avatar */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
                           isCurrentUser ? 'bg-blue-600' : 'bg-green-600'
                         }`}>
                           {isCurrentUser ? 'You' : (message.senderName || 'U').charAt(0)}
