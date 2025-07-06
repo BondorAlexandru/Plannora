@@ -71,71 +71,169 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
 
   // WebSocket connection setup
   const connectWebSocket = useCallback(async () => {
-    if (!user || !collaborationId) return;
+    console.log('🔄 WebSocket Connection Attempt:', {
+      hasUser: !!user,
+      userId: user?._id,
+      userName: user?.name,
+      collaborationId,
+      reconnectAttempt: reconnectAttempts.current
+    });
+    
+    if (!user || !collaborationId) {
+      console.log('❌ Cannot connect WebSocket: missing prerequisites', {
+        hasUser: !!user,
+        hasCollaborationId: !!collaborationId
+      });
+      return;
+    }
     
     try {
+      console.log('⏳ Setting connection status to CONNECTING...');
       setConnectionStatus(ConnectionStatus.CONNECTING);
       
       const token = await getToken();
+      console.log('🔑 Retrieved token:', {
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+        tokenStart: token ? token.substring(0, 20) + '...' : 'none'
+      });
+      
+      if (!token) {
+        console.log('❌ No token available, cannot authenticate WebSocket');
+        setConnectionStatus(ConnectionStatus.ERROR);
+        return;
+      }
+      
       const wsUrl = process.env.NODE_ENV === 'development' 
         ? 'ws://localhost:5001/ws' 
         : `wss://${window.location.host}/ws`;
       
+      console.log('🔗 Creating WebSocket connection to:', wsUrl);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('🔌 WebSocket connected');
+        console.log('🔌 WebSocket connected successfully');
         setConnectionStatus(ConnectionStatus.CONNECTED);
         reconnectAttempts.current = 0;
         
-        // Authenticate with the server
-        ws.send(JSON.stringify({
+        const authMessage = {
           type: 'auth',
           token: token,
           collaborationId: collaborationId
-        }));
+        };
+        
+        console.log('📤 Sending authentication message:', {
+          type: authMessage.type,
+          collaborationId: authMessage.collaborationId,
+          tokenLength: authMessage.token.length,
+          fullMessage: authMessage
+        });
+        
+        // Authenticate with the server
+        ws.send(JSON.stringify(authMessage));
       };
 
       ws.onmessage = (event) => {
+        console.log('📥 WebSocket message received:', {
+          rawData: event.data,
+          timestamp: new Date().toISOString()
+        });
+        
         try {
           const data = JSON.parse(event.data);
+          console.log('📋 Parsed WebSocket message:', data);
           
           if (data.type === 'auth_success') {
             console.log('✅ WebSocket authenticated successfully');
+            setConnectionStatus(ConnectionStatus.CONNECTED);
           } else if (data.type === 'auth_error') {
-            console.error('❌ WebSocket authentication failed:', data.message);
+            console.error('❌ WebSocket authentication failed:', {
+              message: data.message,
+              fullResponse: data
+            });
             setConnectionStatus(ConnectionStatus.ERROR);
           } else if (data.type === 'new_message') {
-            console.log('💬 New message received:', data.message);
-            setMessages(prev => [...prev, data.message]);
+            console.log('💬 New message received:', {
+              messageId: data.message._id,
+              senderName: data.message.senderName,
+              content: data.message.message,
+              fullMessage: data.message
+            });
+            
+            // Add message only if it doesn't already exist (prevent duplicates)
+            setMessages(prev => {
+              const messageExists = prev.some(msg => msg._id === data.message._id);
+              if (messageExists) {
+                console.log('⚠️ Message already exists, skipping duplicate:', data.message._id);
+                return prev;
+              }
+              return [...prev, data.message];
+            });
           } else if (data.type === 'error') {
-            console.error('WebSocket error:', data.message);
+            console.error('⚠️ WebSocket error message:', {
+              message: data.message,
+              fullResponse: data
+            });
+          } else {
+            console.log('🤔 Unknown WebSocket message type:', data);
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('💥 Error parsing WebSocket message:', {
+            error: error instanceof Error ? error.message : String(error),
+            rawData: event.data,
+            stack: error instanceof Error ? error.stack : undefined
+          });
         }
       };
 
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket connection closed:', event.code, event.reason);
+        console.log('🔌 WebSocket connection closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          timestamp: new Date().toISOString(),
+          user: user?.name,
+          userId: user?._id,
+          collaborationId
+        });
         setConnectionStatus(ConnectionStatus.DISCONNECTED);
         wsRef.current = null;
         
         // Attempt to reconnect unless it was a clean close
         if (event.code !== 1000 && reconnectAttempts.current < 5) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-          console.log(`🔄 Attempting to reconnect in ${delay}ms...`);
+          console.log(`🔄 Attempting to reconnect in ${delay}ms...`, {
+            attempt: reconnectAttempts.current + 1,
+            maxAttempts: 5,
+            delay,
+            closeCode: event.code
+          });
           
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttempts.current++;
             connectWebSocket();
           }, delay);
+        } else {
+          console.log('🛑 Not reconnecting:', {
+            code: event.code,
+            isCleanClose: event.code === 1000,
+            maxAttemptsReached: reconnectAttempts.current >= 5,
+            attempts: reconnectAttempts.current
+          });
         }
       };
 
       ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+        console.error('❌ WebSocket client error:', {
+          error,
+          readyState: ws.readyState,
+          url: ws.url,
+          timestamp: new Date().toISOString(),
+          user: user?.name,
+          userId: user?._id,
+          collaborationId
+        });
         setConnectionStatus(ConnectionStatus.ERROR);
       };
 
@@ -149,7 +247,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
   useEffect(() => {
     if (user && collaborationId) {
       loadMessages();
-      connectWebSocket();
+      
+      // Only connect if not already connected
+      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+        connectWebSocket();
+      }
     }
 
     return () => {
@@ -160,7 +262,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, [user, collaborationId, loadMessages, connectWebSocket]);
+  }, [user, collaborationId, loadMessages]); // Removed connectWebSocket from dependencies
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +296,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
         
         if (response.ok) {
           const newMessageData = await response.json();
-          setMessages(prev => [...prev, newMessageData]);
+          // Add message only if it doesn't already exist (prevent duplicates)
+          setMessages(prev => {
+            const messageExists = prev.some(msg => msg._id === newMessageData._id);
+            if (messageExists) {
+              console.log('⚠️ Fallback message already exists, skipping duplicate:', newMessageData._id);
+              return prev;
+            }
+            return [...prev, newMessageData];
+          });
           setNewMessage('');
         }
       } catch (fallbackError) {
@@ -280,7 +390,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
                 
                 {/* Messages for this date */}
                 {dateMessages.map((message: ChatMessage) => {
-                  const isCurrentUser = message.senderId === user?._id;
+                  const isCurrentUser = message.senderId === user?._id || message.senderId.toString() === user?._id?.toString();
                   return (
                     <div
                       key={message._id}
@@ -293,14 +403,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ collaborationId }) => {
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${
                           isCurrentUser ? 'bg-blue-600' : 'bg-green-600'
                         }`}>
-                          {isCurrentUser ? 'You' : message.senderName.charAt(0)}
+                          {isCurrentUser ? 'You' : (message.senderName || 'U').charAt(0)}
                         </div>
                         
                         {/* Message bubble */}
                         <div className="flex flex-col">
                           {!isCurrentUser && (
                             <div className="text-xs font-medium text-gray-600 mb-1 px-1">
-                              {message.senderName}
+                              {message.senderName || 'Unknown User'}
                             </div>
                           )}
                           <div

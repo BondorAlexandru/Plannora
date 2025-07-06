@@ -156,15 +156,42 @@ app.use((err, req, res, next) => {
 
 // WebSocket authentication helper
 function authenticateWS(token) {
+  console.log('🔐 Authenticating WebSocket token:', {
+    hasToken: !!token,
+    tokenLength: token?.length || 0,
+    tokenStart: token ? token.substring(0, 20) + '...' : 'none',
+    hasJwtSecret: !!process.env.JWT_SECRET
+  });
+  
   try {
-    if (!token) return null;
+    if (!token) {
+      console.log('❌ No token provided to authenticateWS');
+      return null;
+    }
     
     // Remove 'Bearer ' if present
     const actualToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    console.log('🔍 Processing token:', {
+      originalLength: token.length,
+      actualLength: actualToken.length,
+      hadBearerPrefix: token.startsWith('Bearer ')
+    });
+    
     const decoded = jwt.verify(actualToken, process.env.JWT_SECRET);
+    console.log('✅ Token successfully decoded:', {
+      userId: decoded.id || decoded._id,
+      iat: decoded.iat,
+      exp: decoded.exp,
+      isExpired: decoded.exp < Math.floor(Date.now() / 1000)
+    });
+    
     return decoded;
   } catch (error) {
-    console.error('WebSocket authentication error:', error);
+    console.error('❌ WebSocket authentication error:', {
+      errorName: error.name,
+      errorMessage: error.message,
+      tokenLength: token?.length || 0
+    });
     return null;
   }
 }
@@ -182,31 +209,97 @@ const wss = new WebSocketServer({
 const collaborationConnections = new Map();
 
 wss.on('connection', (ws, req) => {
-  console.log('🔌 New WebSocket connection');
+  console.log('🔌 New WebSocket connection established:', {
+    url: req.url,
+    origin: req.headers.origin,
+    userAgent: req.headers['user-agent'],
+    timestamp: new Date().toISOString()
+  });
   
   let user = null;
   let collaborationId = null;
   
   ws.on('message', async (data) => {
+    console.log('📥 WebSocket server received message:', {
+      rawData: data.toString(),
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       const message = JSON.parse(data);
+      console.log('📋 Parsed WebSocket message on server:', message);
       
       // Handle authentication
       if (message.type === 'auth') {
+        console.log('🔐 Processing WebSocket authentication:', {
+          collaborationId: message.collaborationId,
+          hasToken: !!message.token,
+          tokenLength: message.token?.length || 0
+        });
+        
         user = authenticateWS(message.token);
         collaborationId = message.collaborationId;
         
+        console.log('🔍 Token authentication result:', {
+          authenticated: !!user,
+          userId: user?._id || user?.id,
+          userName: user?.name,
+          collaborationId
+        });
+        
         if (user && collaborationId) {
+          console.log('🔎 Verifying user access to collaboration...');
+          
           // Verify user has access to this collaboration
           const { db } = await connectToMongoDB();
           if (db) {
+            const userId = user._id || user.id;
+            console.log('🗃️ Database query parameters:', {
+              collaborationId,
+              userId,
+              userIdType: typeof userId
+            });
+            
+            // Look up full user information from database
+            const fullUser = await db.collection('users').findOne({
+              _id: new ObjectId(userId)
+            });
+            
+            if (fullUser) {
+              // Update user object with full information
+              user = {
+                ...user,
+                name: fullUser.name,
+                email: fullUser.email,
+                accountType: fullUser.accountType
+              };
+              
+              console.log('👤 Full user info retrieved:', {
+                userId: user.id,
+                name: user.name,
+                email: user.email
+              });
+            }
+            
             const collaboration = await db.collection('collaborations').findOne({
               _id: new ObjectId(collaborationId),
               $or: [
-                { clientId: new ObjectId(user._id) },
-                { plannerId: new ObjectId(user._id) }
-              ],
-              status: 'active'
+                { clientId: new ObjectId(userId) },
+                { plannerId: new ObjectId(userId) }
+              ]
+              // Remove status filter to allow access to archived collaborations
+            });
+            
+            console.log('📊 Collaboration lookup result:', {
+              found: !!collaboration,
+              collaborationData: collaboration ? {
+                id: collaboration._id.toString(),
+                clientId: collaboration.clientId?.toString(),
+                plannerId: collaboration.plannerId?.toString(),
+                status: collaboration.status,
+                clientName: collaboration.clientName,
+                plannerName: collaboration.plannerName
+              } : null
             });
             
             if (collaboration) {
@@ -219,13 +312,21 @@ wss.on('connection', (ws, req) => {
               ws.collaborationId = collaborationId;
               ws.user = user;
               
-              console.log(`✅ User ${user.name} joined collaboration ${collaborationId}`);
+              console.log(`✅ User ${user.name} (${userId}) successfully joined collaboration ${collaborationId}`);
               ws.send(JSON.stringify({ type: 'auth_success' }));
             } else {
+              console.log(`❌ User ${user.name} (${userId}) denied access to collaboration ${collaborationId}`);
               ws.send(JSON.stringify({ type: 'auth_error', message: 'Access denied' }));
             }
+          } else {
+            console.log('❌ Database connection failed during WebSocket auth');
+            ws.send(JSON.stringify({ type: 'auth_error', message: 'Database error' }));
           }
         } else {
+          console.log('❌ Invalid authentication credentials:', {
+            hasUser: !!user,
+            hasCollaborationId: !!collaborationId
+          });
           ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid token' }));
         }
       }
@@ -252,7 +353,7 @@ wss.on('connection', (ws, req) => {
             message: {
               _id: result.insertedId,
               ...chatMessage,
-              senderName: user.name
+              senderName: user.name || user.email || 'Unknown User'
             }
           };
           
@@ -271,13 +372,25 @@ wss.on('connection', (ws, req) => {
       }
       
     } catch (error) {
-      console.error('WebSocket message error:', error);
+      console.error('💥 WebSocket message processing error:', {
+        errorName: error.name,
+        errorMessage: error.message,
+        rawData: data.toString(),
+        stack: error.stack
+      });
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
     }
   });
   
-  ws.on('close', () => {
-    console.log('🔌 WebSocket connection closed');
+  ws.on('close', (code, reason) => {
+    console.log('🔌 WebSocket connection closed:', {
+      code,
+      reason: reason?.toString(),
+      user: user?.name,
+      userId: user?._id || user?.id,
+      collaborationId,
+      timestamp: new Date().toISOString()
+    });
     
     // Remove connection from collaboration room
     if (collaborationId && collaborationConnections.has(collaborationId)) {
@@ -285,13 +398,21 @@ wss.on('connection', (ws, req) => {
       
       // Clean up empty collaboration rooms
       if (collaborationConnections.get(collaborationId).size === 0) {
+        console.log(`🗑️ Cleaning up empty collaboration room: ${collaborationId}`);
         collaborationConnections.delete(collaborationId);
       }
     }
   });
   
   ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+    console.error('❌ WebSocket connection error:', {
+      errorName: error.name,
+      errorMessage: error.message,
+      user: user?.name,
+      userId: user?._id || user?.id,
+      collaborationId,
+      stack: error.stack
+    });
   });
 });
 

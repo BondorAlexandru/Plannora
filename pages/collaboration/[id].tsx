@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { Layout } from '../../src/components/NextLayout';
 import { useAuth } from '../../src/contexts/NextAuthContext';
 import ChatInterface from '../../src/components/ChatInterface';
+import VendorManagement from '../../src/components/VendorManagement';
 
 interface Collaboration {
   _id: string;
   clientId: string;
   plannerId: string;
   eventId: string;
-  status: 'active' | 'completed' | 'cancelled';
+  status: 'active' | 'archived';
   createdAt: string;
+  updatedAt?: string;
   clientName: string;
   plannerName: string;
   plannerBusinessName: string;
   eventName: string;
   eventDate: string;
   eventLocation: string;
+  budget?: number;
+  isClient?: boolean;
 }
 
 
@@ -41,11 +46,12 @@ const CollaborationPage: React.FC = () => {
   const [vendorNotes, setVendorNotes] = useState<VendorNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'vendors'>('chat');
   const [newNote, setNewNote] = useState('');
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [addingNote, setAddingNote] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   
   const { user, getToken } = useAuth();
   const router = useRouter();
@@ -175,6 +181,43 @@ const CollaborationPage: React.FC = () => {
     );
   };
 
+  // Archive/unarchive collaboration
+  const handleArchiveToggle = async () => {
+    if (!collaboration || !user) return;
+    
+    try {
+      setArchiving(true);
+      const token = await getToken();
+      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '';
+      const archived = collaboration.status === 'active';
+      
+      const response = await fetch(`${baseUrl}/api/collaborations/${id}/archive`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ archived })
+      });
+      
+      if (response.ok) {
+        setCollaboration(prev => prev ? {
+          ...prev,
+          status: archived ? 'archived' : 'active',
+          updatedAt: new Date().toISOString()
+        } : null);
+      } else {
+        console.error('Failed to archive collaboration');
+        alert('Failed to archive collaboration');
+      }
+    } catch (error) {
+      console.error('Error archiving collaboration:', error);
+      alert('Error archiving collaboration');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   if (!user) {
     return <Layout children={<div>Loading...</div>} />;
   }
@@ -208,13 +251,53 @@ const CollaborationPage: React.FC = () => {
       <div className="max-w-6xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {collaboration.eventName}
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {collaboration.eventName}
+              </h1>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                collaboration.status === 'active'
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {collaboration.status}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Link
+                href="/collaborations"
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                ← Back to Collaborations
+              </Link>
+              <button
+                onClick={handleArchiveToggle}
+                disabled={archiving}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  collaboration.status === 'active'
+                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                } ${archiving ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {archiving ? (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                    <span>...</span>
+                  </div>
+                ) : (
+                  collaboration.status === 'active' ? 'Archive' : 'Unarchive'
+                )}
+              </button>
+            </div>
+          </div>
           <div className="flex items-center space-x-4 text-sm text-gray-600">
             <span>📅 {collaboration.eventDate}</span>
             <span>📍 {collaboration.eventLocation}</span>
             <span>👥 {collaboration.clientName} & {collaboration.plannerBusinessName}</span>
+            {collaboration.budget && (
+              <span>💰 ${collaboration.budget.toLocaleString()}</span>
+            )}
           </div>
         </div>
 
@@ -242,6 +325,16 @@ const CollaborationPage: React.FC = () => {
               >
                 Vendor Notes ({vendorNotes.length})
               </button>
+              <button
+                onClick={() => setActiveTab('vendors')}
+                className={`whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'vendors'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Vendor Management
+              </button>
             </nav>
           </div>
         </div>
@@ -250,6 +343,14 @@ const CollaborationPage: React.FC = () => {
         {activeTab === 'chat' && (
           <ChatInterface
             collaborationId={collaboration._id}
+          />
+        )}
+
+        {activeTab === 'vendors' && (
+          <VendorManagement
+            collaborationId={collaboration._id}
+            eventId={collaboration.eventId}
+            userBudget={collaboration.budget || 10000}
           />
         )}
 
